@@ -88,6 +88,14 @@ const loops = lazy(() => {
         morph: shared(morph, () => back(morph, 1200)),
     };
 });
+/**
+ * Animated's View, made from View. Not `Animated.View`: the Valenced build rewrites
+ * React Native names to `valenced.react.ReactNative.<name>` even after a dot, so
+ * `Animated.View` became `Animated.valenced.react.ReactNative.View` (undefined) and
+ * every tile threw. Never write `<rn export>.<another rn export name>` in mobile code.
+ */
+const AnimatedView = lazy(() => Animated.createAnimatedComponent(View));
+
 type LoopName = "breathe" | "spin" | "morph";
 
 function useLoops(names: LoopName[]) {
@@ -125,6 +133,7 @@ const range = (v: Animated.Value, inputRange: number[], outputRange: number[] | 
 function Indicator({ state, progress }: { state: IndicatorState; progress: number | null; }) {
     const themed = useThemedStyles();
     const s = styles();
+    const AView = AnimatedView();
     const p = state === "loading" && progress != null ? Math.min(1, Math.max(0, progress)) : null;
 
     useLoops(state === "queued" ? ["breathe"] : state === "cached" ? ["breathe", "morph"] : p == null ? ["spin"] : []);
@@ -151,14 +160,14 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
     if (state === "cached") {
         return (
             <View style={s.overlay} pointerEvents="none">
-                <Animated.View style={[s.box, { opacity: appear }]}>
-                    <Animated.View style={[s.layer, breathing]}>
-                        <Animated.View style={[s.layer, { transform: [{ rotate: range(morph, [0, 1], ["0deg", "90deg"]) }] }]}>
-                            <Animated.View style={[themed.dot, { opacity: range(morph, [0.2, 0.8], [1, 0]) }]} />
-                            <Animated.View style={[themed.square, s.stacked, { opacity: range(morph, [0.2, 0.8], [0, 1]) }]} />
-                        </Animated.View>
-                    </Animated.View>
-                </Animated.View>
+                <AView style={[s.box, { opacity: appear }]}>
+                    <AView style={[s.layer, breathing]}>
+                        <AView style={[s.layer, { transform: [{ rotate: range(morph, [0, 1], ["0deg", "90deg"]) }] }]}>
+                            <AView style={[themed.dot, { opacity: range(morph, [0.2, 0.8], [1, 0]) }]} />
+                            <AView style={[themed.square, s.stacked, { opacity: range(morph, [0.2, 0.8], [0, 1]) }]} />
+                        </AView>
+                    </AView>
+                </AView>
             </View>
         );
     }
@@ -167,29 +176,29 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
         <View style={s.overlay} pointerEvents="none">
             <View style={s.box}>
                 {/* The dot breathes; when loading starts it swells and fades into the ring */}
-                <Animated.View style={[s.layer, state === "queued" ? breathing : null]}>
-                    <Animated.View
+                <AView style={[s.layer, state === "queued" ? breathing : null]}>
+                    <AView
                         style={[themed.dot, {
                             opacity: range(grow, [0, 0.6], [1, 0]),
                             transform: [{ scale: range(grow, [0, 1], [1, 2.2]) }],
                         }]}
                     />
-                </Animated.View>
+                </AView>
                 {/* The ring grows out of the dot and spins; when progress shows up it squashes flat and fades into the line */}
-                <Animated.View
+                <AView
                     style={[s.layer, {
                         opacity: range(flat, [0, 0.6], [1, 0]),
                         transform: [{ scaleX: range(flat, [0, 1], [1, 2]) }, { scaleY: range(flat, [0, 1], [1, 0.18]) }],
                     }]}
                 >
-                    <Animated.View style={{ opacity: range(grow, [0.2, 0.7], [0, 1]), transform: [{ scale: range(grow, [0, 1], [0.45, 1]) }] }}>
-                        <Animated.View
+                    <AView style={{ opacity: range(grow, [0.2, 0.7], [0, 1]), transform: [{ scale: range(grow, [0, 1], [0.45, 1]) }] }}>
+                        <AView
                             style={[themed.ring, p == null && { transform: [{ rotate: range(spin, [0, 1], ["0deg", "360deg"]) }] }]}
                         />
-                    </Animated.View>
-                </Animated.View>
+                    </AView>
+                </AView>
                 {p != null && (
-                    <Animated.View
+                    <AView
                         style={[s.layer, {
                             opacity: range(flat, [0.35, 1], [0, 1]),
                             transform: [{ scaleX: range(flat, [0, 1], [0.5, 1]) }],
@@ -198,13 +207,13 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
                         <View style={themed.line}>
                             <View style={[themed.lineFill, { width: `${Math.round(p * 100)}%` }]} />
                         </View>
-                    </Animated.View>
+                    </AView>
                 )}
             </View>
             {p != null && (
-                <Animated.View style={{ opacity: range(flat, [0.6, 1], [0, 1]) }}>
+                <AView style={{ opacity: range(flat, [0.6, 1], [0, 1]) }}>
                     <Text style={themed.pct}>{Math.round(p * 100)}%</Text>
-                </Animated.View>
+                </AView>
             )}
         </View>
     );

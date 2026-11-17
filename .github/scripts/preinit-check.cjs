@@ -8,6 +8,17 @@
 const fs = require("fs");
 const script = fs.readFileSync(process.argv[2], "utf8");
 
+// The build rewrites React Native names to `valenced.react.ReactNative.<name>`, also
+// after a dot: `Animated.View` became `Animated.valenced.react.ReactNative.View`,
+// undefined at render, so every tile threw (experimental 1.6.0.x). Anything right
+// before `valenced.` other than an operator, bracket or space is such a rewrite.
+const mangled = [...new Set(script.match(/[\w$)\]]\.valenced\.react\.[\w.]+/g) ?? [])];
+if (mangled.length) {
+    console.log(`FAILS: the build rewrote a member access: ${mangled.join(", ")}`);
+    console.log("  Use the export directly (e.g. Animated.createAnimatedComponent(View)), not <export>.<React Native name>.");
+    process.exitCode = 1;
+}
+
 const reads = [];
 function guarded(name) {
     return new Proxy({}, {
