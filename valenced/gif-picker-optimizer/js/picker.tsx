@@ -13,7 +13,7 @@ import type { CategoriesPageProps } from "./mainPage";
 import { canShowMainPage, MainPage } from "./mainPage";
 import type { AnyComponent } from "./modules";
 import { pickerModules } from "./modules";
-import { useSettings } from "./settingsStore";
+import { useSettings, useSettingsLoaded } from "./settingsStore";
 
 // Rendered as their own components (not called inline), so their hooks don't
 // change the wrapper's hook order when it switches between them.
@@ -60,6 +60,10 @@ export function DeferredPicker({ props }: { props: Record<string, unknown>; }) {
 /** The picker's main page: only Favorites with "favourites only", else Discord's own page */
 export function CategoriesPage({ props }: { props: CategoriesPageProps; }) {
     const { favoritesOnly } = useSettings();
+    // Right after Discord starts the saved settings may not be read yet: wait (a file
+    // read) instead of showing Trending for a moment with Favourites only on
+    const loaded = useSettingsLoaded();
+    if (!loaded) return <View style={styles().pickerPlaceholder} />;
     if (!favoritesOnly || !canShowMainPage(props)) return <CategoriesPageInner {...props} />;
     return <MainPage props={props} />;
 }

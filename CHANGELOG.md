@@ -12,6 +12,11 @@ and tests ran.
 - `OptimizedResultsList` (viewport.tsx) now sets `drawDistance` to at least 540 px (`DRAW_DISTANCE`, three rows). Visible-first order still comes from `onViewableItemsChanged`, so the extra tiles only queue behind the on-screen ones.
 - It's a setting, **Viewport buffer** (mobile, GIF picker section, on by default; `viewportBuffer`). Off leaves Discord's draw distance alone.
 
+**Changed on 2026-11-17 (mobile: reload on enable / disable, settings read late; not tried on a device):**
+- User report: the plugin sometimes doesn't load correctly after turning it on, and right after Discord starts the GIF picker can open before Favourites only applies.
+- Turning GIFs+ on while Discord runs (`plugin.startedLate`) now asks for a reload (`requireReload()`, Valenced's "reload required" prompt) and starts nothing until then: Discord's GIF modules are already loaded and in use, so the patches only half applied. `stop` asks for a reload too, since undoing the patches leaves the picker half patched until it's rebuilt. Same pattern as Valenced's own no-track and user-badges plugins.
+- Settings read late: `jsonStorage` with `load: true` only creates the storage; the file is read in the background (`get()`), and until then `storage.cache` is undefined, so `getSettings()` / `useSettings()` returned the defaults (Favourites only off, Load one by one on with 3 at a time, cache size 1000). Now `start` applies the queue and cache settings again once the file is read (`whenSettingsLoaded`), and the main page shows an empty frame until then (`useSettingsLoaded`) instead of Discord's page with Trending.
+
 ## 1.7.1 (2026-11-17)
 
 - Mobile: the loading spinner no longer stays for a moment after a GIF has appeared.

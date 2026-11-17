@@ -149,6 +149,8 @@ A preview is only used if it's the same media type as the original (video stays 
 - **Mobile: never use a React or React Native import as a shorthand object key** (`{ useState, useEffect }`): the build rewrites it there too and the bundle doesn't parse. Pass the `React` namespace instead (tile.tsx).
 - **Mobile: never remove a native-driven animated style from a view that stays mounted** (React Native leaves the view at the last native value). Shared native loops reset their value to 0 when they restart.
 - **Mobile: the flux patch must return the payload**, or the event is blocked.
+- **Mobile: settings are read in the background after start** (`jsonStorage` `load: true` doesn't wait for the file). Until then they're the defaults: anything that must not flash the default (Favourites only) waits with `useSettingsLoaded()`, and start-time settings are applied again with `whenSettingsLoaded()`.
+- **Mobile: turning the plugin on or off asks for a reload** (`plugin.startedLate` → `requireReload()` and start nothing; `stop` → `requireReload()`): patching a picker that's already loaded only half works.
 - **Imports are untrusted:** `parseExport` only takes https entries, and any site outside the known GIF hosts is shown to the user before importing (`otherSitesWarning`).
 
 ## Tests and verification

@@ -98,7 +98,7 @@ Add this URL as a plugin repository in Valenced, then install **GIFs+** from it:
 https://thatkerimguy.github.io/KerimsPluginRepo/index.json
 ```
 
-Updates come through the same repository.
+Updates come through the same repository. Turning GIFs+ on or off asks Discord to reload, so the GIF picker is patched cleanly from the start.
 
 ### Test builds
 

@@ -26,7 +26,7 @@ import { createLowResPages, locale } from "./previews";
 import type { UrlListStore } from "./saved";
 import SettingsComponent from "./settings";
 import type { Settings } from "./settingsStore";
-import { cacheControl, DefaultSettings, getSettings, setStorage } from "./settingsStore";
+import { cacheControl, DefaultSettings, getSettings, setStorage, whenSettingsLoaded } from "./settingsStore";
 import { apiPreviews, applyQueueSettings, failed, flushSaved, loadedThisSession, PLUGIN_ID, runtime, seen } from "./state";
 import { TenorPageResolver } from "./tenor";
 
@@ -60,11 +60,22 @@ export default plugin<{ jsonStorage: Settings; }>({
         default: DefaultSettings,
     },
 
-    start({ cleanup, jsonStorage, logger }) {
+    start({ cleanup, jsonStorage, logger, plugin: self }) {
         setStorage(jsonStorage);
         runtime.logger = logger;
-        loadedThisSession.resize(getSettings().cacheSize);
-        applyQueueSettings(getSettings());
+        // Turned on while Discord was running: Discord's GIF modules are already loaded and
+        // in use, so the patches would only half apply. Ask for a reload and start then.
+        if (self.startedLate) {
+            self.requireReload();
+            return;
+        }
+        // The saved settings are read in the background: apply them once they're in
+        const applySettings = () => {
+            loadedThisSession.resize(getSettings().cacheSize);
+            applyQueueSettings(getSettings());
+        };
+        applySettings();
+        whenSettingsLoaded(applySettings);
         cacheControl.stats = cacheNumbers;
         cacheControl.reset = resetCaches;
         // Seen working when the code each patch calls runs (diagnostics.ts, shown in settings)
@@ -125,6 +136,11 @@ export default plugin<{ jsonStorage: Settings; }>({
             },
         );
         applyPatches(cleanup);
+    },
+
+    // Undoing the patches leaves Discord's GIF picker half patched until it's rebuilt: ask for a reload
+    stop({ plugin: self }) {
+        self.requireReload();
     },
 
     SettingsComponent,
