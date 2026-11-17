@@ -1,30 +1,17 @@
 {
   "format": 1,
   "name": "KerimsPluginRepo Experimental",
-  "description": "Test builds, may be broken. Use KerimsPluginRepo for the stable plugins. Kerim's Valenced plugins. GIFs+: a faster GIF picker, plus precaching and exporting / importing favourites.",
+  "description": "Test builds, may be broken. Use KerimsPluginRepo for the stable plugins. Kerim's Plugins for Vencord and Valenced",
   "plugins": {
     "thatkerimguy.gif-picker-optimizer-experimental": {
       "name": "GIFs+ Experimental",
-      "description": "Test build, may be broken. Faster GIF picker: loads GIFs one by one with low resolution previews and remembers which ones loaded, also across restarts. Exports / imports your favourites between accounts.",
+      "description": "Test build, may be broken. Various Tweaks to the Discord's Gif Picker",
       "author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
       "icon": "GifIcon",
       "channels": {
-        "latest": "1.6.0.9"
+        "latest": "1.7.0.10"
       },
       "versions": {
-        "1.6.0.5": {
-          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.5.zip",
-          "sha256": "978d7d6a624459e67a8c2bde1172f46a21575557206b447a0c612811f05fd6b2",
-          "size": 18883,
-          "dependencies": {
-            "valenced.api": {
-              "version": ">=1 <2"
-            },
-            "discord": {
-              "version": "*"
-            }
-          }
-        },
         "1.6.0.6": {
           "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.6.zip",
           "sha256": "c5105f09edd027c182400a9a530532c669a0a2d37c7f020615ed24402e7f3934",
@@ -68,6 +55,19 @@
           "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.9.zip",
           "sha256": "d5bcc3eacc3bbd60a88a18bc1efc3c2d8648fb6b9c341df8151fd68ad2b23008",
           "size": 19754,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.7.0.10": {
+          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.7.0.10.zip",
+          "sha256": "0aa8ebb296ae5de4a61aecb5b52b90ffc9f500785df800ace77c49356f4606fa",
+          "size": 21307,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
