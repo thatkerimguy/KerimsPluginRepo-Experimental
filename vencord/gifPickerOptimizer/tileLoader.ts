@@ -10,13 +10,20 @@
  * - queued: waiting for a turn in the load queue
  * - resolving: looking up the small Klipy / Tenor URL before loading
  * - loading: the chosen URL is loading
- * - done: loaded, failed for good, or shown from cache
+ * - done: loaded, shown from cache, or given up after retries (`gaveUp`)
+ *
+ * A preview that fails is tried again (most failures are a network hiccup), and is
+ * never swapped for the full size original: that's the download the plugin is there
+ * to avoid. A still image that keeps failing falls back to the animated preview.
  */
 
 import { wait } from "./klipy";
 import type { LoadQueue, Ticket } from "./queue";
 
 export type Phase = "queued" | "resolving" | "loading" | "done";
+
+/** How long to wait before each retry of a failed preview */
+export const RETRY_DELAYS_MS = [1000, 3000, 9000];
 
 /** The React hooks the loader uses (pass React's own) */
 export interface ReactHooks {
@@ -33,8 +40,10 @@ export interface TileEnv {
     /** Loaded in an earlier session: first in the queue, no spinner */
     wasSeen(url: string): boolean;
     markLoaded(url: string): void;
-    /** A URL that failed: remembered as failed and forgotten as loaded */
+    /** A URL that failed for good: remembered as failed (stills then use the preview) and forgotten as loaded */
     markFailed(url: string): void;
+    /** A URL that failed once: no longer counts as loaded, so the retry takes a turn in the queue */
+    forgetLoaded(url: string): void;
     drop(ticket: Ticket | null): void;
     isDropped(ticket: Ticket): boolean;
     onError(message: string, e: unknown): void;
@@ -64,6 +73,8 @@ export interface TileLoaderOptions {
      * mobile image views report neither). One that reports progress keeps loading.
      */
     stallFallback?: boolean;
+    /** Waits before each retry of a failed preview (default RETRY_DELAYS_MS) */
+    retryDelaysMs?: number[];
 }
 
 export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderOptions) {
@@ -86,6 +97,16 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
     /** Loaded in an earlier session. Set before the first paint, so these tiles never flash the queued dot. */
     const [seenBefore, setSeenBefore] = useState(initial.seenBefore);
     const [progress, setProgress] = useState<number | null>(null);
+    /** Bumped on each retry. Builds put it in the image's key, so the same URL loads again. */
+    const [attempt, setAttempt] = useState(0);
+    /** Every retry failed and there's no other preview: the tile waits (no full size download) */
+    const [gaveUp, setGaveUp] = useState(false);
+    const retries = useRef(0);
+    const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const cancelRetry = () => {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = undefined;
+    };
 
     const ticketRef = useRef<Ticket | null>(null);
     const indexRef = useRef(opts.index);
@@ -104,6 +125,9 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
 
     /** Back to waiting for a turn, giving up the current ticket */
     const restart = () => {
+        cancelRetry();
+        retries.current = 0;
+        setGaveUp(false);
         env.drop(ticketRef.current);
         setChosen(null);
         setProgress(null);
@@ -201,28 +225,62 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
     }, [phase, chosen]);
 
     // Unmounted while loading: free the slot
-    useEffect(() => () => env.drop(ticketRef.current), []);
+    useEffect(() => () => {
+        cancelRetry();
+        env.drop(ticketRef.current);
+    }, []);
 
     /** The shown URL loaded (also when shown from cache) */
     const done = () => {
         if (chosen) env.markLoaded(chosen);
+        // It loaded after all (the image element retried by itself): no failed mark
+        if (gaveUp) setGaveUp(false);
         if (phase !== "loading") return;
         if (ticketRef.current) env.queue.finish(ticketRef.current);
         setPhase("done");
     };
 
-    /** The shown URL failed: try the next best one, then the original */
+    /** The shown URL failed (also when shown from cache: it may not load any more) */
     const error = () => {
-        if (chosen && chosen !== original) {
-            env.markFailed(chosen);
-            setProgress(null);
-            const next = optsRef.current.pick();
-            setChosen(next !== chosen ? next : original);
-            // Also when shown from cache ("done"): the URL may not load any more
+        // Already waiting to try again
+        if (retryTimer.current) return;
+        if (!chosen || chosen === original) {
+            if (ticketRef.current) env.queue.finish(ticketRef.current);
+            setPhase("done");
+            return;
+        }
+        setProgress(null);
+
+        // Try the same preview again after a while, without holding a queue slot meanwhile
+        const delays = optsRef.current.retryDelaysMs ?? RETRY_DELAYS_MS;
+        if (retries.current < delays.length) {
+            const failedUrl = chosen;
+            if (ticketRef.current) env.queue.finish(ticketRef.current);
+            retryTimer.current = setTimeout(() => {
+                retryTimer.current = undefined;
+                env.forgetLoaded(failedUrl);
+                env.drop(ticketRef.current);
+                setChosen(null);
+                setAttempt(a => a + 1);
+                setPhase("queued");
+            }, delays[retries.current++]);
+            return;
+        }
+
+        // Still failing: another preview if there is one (a still image falls back to the animated preview)
+        env.markFailed(chosen);
+        const next = optsRef.current.pick();
+        if (next !== chosen && next !== original) {
+            retries.current = 0;
+            setChosen(next);
+            setAttempt(a => a + 1);
             if (phase === "done") setPhase("loading");
             return;
         }
+
+        // Give up for now. The tile tries again when it comes back on screen or the picker reopens.
         if (ticketRef.current) env.queue.finish(ticketRef.current);
+        setGaveUp(true);
         setPhase("done");
     };
 
@@ -253,5 +311,5 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
         if (phase === "loading" && total > 0) setProgress(loadedBytes / total);
     };
 
-    return { phase, chosen, seenBefore, progress, setVisible, done, error, reportProgress };
+    return { phase, chosen, seenBefore, progress, attempt, gaveUp, setVisible, done, error, reportProgress };
 }

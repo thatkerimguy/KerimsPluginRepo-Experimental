@@ -56,9 +56,10 @@ export interface ItemProps {
  * - queued: a breathing dot
  * - loading: the dot swells into a spinner, which squashes into a progress line once progress is known
  * - cached (seen in an earlier session, normally straight from the cache): a breathing circle that morphs into a square and back
+ * - failed (the preview failed every retry; tried again when the tile comes back): a still, hollow ring
  * Same shapes and timings as the desktop indicator (vencord styles.css).
  */
-type IndicatorState = "queued" | "loading" | "cached";
+type IndicatorState = "queued" | "loading" | "cached" | "failed";
 
 /**
  * Looping animations shared by every tile, so they all move in step and cost one
@@ -169,7 +170,7 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
     const AView = AnimatedView();
     const p = state === "loading" && progress != null ? Math.min(1, Math.max(0, progress)) : null;
 
-    useLoops(state === "queued" ? ["breathe"] : state === "cached" ? ["breathe", "morph"] : ["spin"]);
+    useLoops(state === "queued" ? ["breathe"] : state === "cached" ? ["breathe", "morph"] : state === "failed" ? [] : ["spin"]);
     const { breathe, spin, morph } = { breathe: loops().breathe.value, spin: loops().spin.value, morph: loops().morph.value };
 
     /** dot (0) → ring (1), with a small overshoot */
@@ -189,6 +190,14 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
         opacity: range(breathe, [0, 1], [0.5, 0.95]),
         transform: [{ scale: range(breathe, [0, 1], [0.6, 1]) }],
     };
+
+    if (state === "failed") {
+        return (
+            <View style={s.overlay} pointerEvents="none">
+                <View style={[themed.track, s.failed]} />
+            </View>
+        );
+    }
 
     if (state === "cached") {
         return (
@@ -292,7 +301,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     const hasImage = imagePath != null;
 
     // Tiles that scroll away are unmounted (and recycled) by Discord's FlashList
-    const { phase, chosen, seenBefore, progress, setVisible, done, error, reportProgress } = useTileLoader(
+    const { phase, chosen, seenBefore, progress, attempt, gaveUp, setVisible, done, error, reportProgress } = useTileLoader(
         // React itself, not `{ useState, ... }`: the build rewrites React names even as object keys
         React,
         tileEnv,
@@ -317,7 +326,9 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         const imgProps = img.props;
 
         // One Indicator at the same place in the frame from queued to loaded, so it animates between states
-        const indicatorState = !showProgress || phase === "done" ? null
+        const indicatorState = !showProgress ? null
+            : gaveUp ? "failed"
+            : phase === "done" ? null
             : seenBefore ? "cached"
             : phase === "queued" ? "queued"
             : "loading";
@@ -336,7 +347,8 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         const shown = chosen ?? original;
         const image = {
             ...img,
-            key: shown,
+            // A retry of the same URL is a new element, so it loads again
+            key: `${attempt}:${shown}`,
             props: {
                 ...imgProps,
                 source: { ...imgProps.source, uri: shown },
@@ -388,6 +400,14 @@ const styles = lazy(() => StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         alignItems: "center",
         justifyContent: "center",
+    },
+    /** Failed every retry: a still, hollow ring (track colour) */
+    failed: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        borderWidth: 2,
+        opacity: 0.6,
     },
     /** The progress line's fill sits on the flattened track */
     lineBox: {

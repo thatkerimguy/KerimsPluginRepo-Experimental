@@ -80,7 +80,8 @@ export function pickSrc(item: GifItem, src: string): string {
         ?? (formats && runtime.klipy!.peek(item.url, formats))
         ?? rewriteUrl(original, q, item);
 
-    if (!low || low === original || failed.has(low)) return original;
+    // A preview that failed before is still used: tiles retry it rather than load the full size original
+    if (!low || low === original) return original;
     // Must stay the same media type or the picker would render it with the wrong element
     if (isVideoUrl(low) !== isVideoUrl(original)) return original;
     return low;

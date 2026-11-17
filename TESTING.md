@@ -35,7 +35,9 @@ First, open the plugin's settings → **Patches**. Do what each "not seen yet" l
 8. Settings → Still favourites on: favourites show still images; clicking one sends the animated GIF. Turn it off with the picker closed and open it again: everything loads.
 9. Favourites only: the main page shows search and Favorites, no Trending.
 10. Export the favourites, import the file with merge (toast shows the counts) and with replace (asks first). Import a file with a GIF from another site: it lists that site and asks before importing.
-11. Change "GIFs loading at the same time" with the picker open: the next tiles follow the new number.
+11. Change "GIFs at the same time" with the picker open: the next tiles follow the new number. Turn off "Load one by one": its three dependent settings disappear.
+12. Settings read cleanly: headings for Previews, Loading, GIF picker, Favourites, Status and cache; the Patches and Cache summaries expand to details.
+13. Retries: in DevTools → Network, block a preview's domain (right click → Block request domain), open the picker, then unblock it within a few seconds: the tiles retry and load the preview, never the full size GIF. Left blocked, they end with a still, hollow ring.
 
 ### Mobile
 
@@ -46,4 +48,5 @@ First, open the plugin's settings → **Patches**. Do what each "not seen yet" l
 5. The spinner, progress line and cached shape animate smoothly, all tiles in step, same size.
 6. The GIF tab opens without freezing (faster tab switch), and Favourites only works.
 7. Export to the clipboard, import with merge and replace.
-8. Put the app in the background and back after loading a few new GIFs, then force close it: after a restart, those GIFs count as seen.
+8. Settings: the groups read cleanly, tapping Preview size / GIFs at the same time / Skip slow GIFs after / Remembered GIFs lists the values under it, and turning off Load one by one hides the two loading rows.
+9. Put the app in the background and back after loading a few new GIFs, then force close it: after a restart, those GIFs count as seen.

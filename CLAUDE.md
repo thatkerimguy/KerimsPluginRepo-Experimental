@@ -29,16 +29,16 @@ Shared (both builds, kept in sync by the script):
 
 Vencord (`vencord/gifPickerOptimizer/`):
 - `index.tsx`: `definePlugin`, flux handler, start/stop (queue settings, connection listener, flush on close / hidden, expected patches). `patches.ts`: the webpack patches as plain data (tested against Discord's code).
-- `settings.tsx`: settings, `quality()`, `applyQueueSettings` (on start, setting change, connection change), `loadConcurrency`. `CacheSettings.tsx`: cache stats, reset, and the Patches table.
+- `settings.tsx`: settings in sections (Previews, Loading, GIF picker, Favourites, Status and cache; the headings are value-less component settings from `SettingsHeader.tsx`), each with a `displayName`; GIFs at the same time, On-screen GIFs first and Skip slow GIFs after are `hidden` while Load one by one is off. Also `quality()`, `applyQueueSettings` (on start, setting change, connection change), `loadConcurrency`. `CacheSettings.tsx`: `PatchesSettings` and `CacheSettings` (one-line summary, details in an `ExpandableSection`; the cache one also has the reset button).
 - `state.ts`: `createTracking(...)` exports, `runtime` (`KlipyResolver`, `LowResPages` while running), DataStore keys.
-- `previews.ts`: `pickSrc`, `pickStill`, `createLowResPages`, `lowResStarted`, Klipy favourite lookups, `favoriteUrls`.
+- `previews.ts`: `pickSrc`, `pickStill`, `createLowResPages`, `lowResStarted`, Klipy favourite lookups.
 - `SequentialResult.tsx`: the tile (shared loader). `components.tsx`: `Indicator`, `LoadOverlay` (probe image only while loading; a tile shown from cache listens for its own `<img>` error), `StillTile`. `stillFrames.ts`: frame capture and its LRU. `viewport.ts`: `ViewportWatcher` / `useViewport` (on-screen state for queue priority).
-- `favoritesOnly.ts`: helpers called from patches. `favorites.ts`: `favoritesBackend`, `favoriteItems()`. `FavoritesSettings.tsx` (export to a file, import with one confirmation for replace and other sites), `hooks.ts`, `types.ts`.
+- `favoritesOnly.ts`: helpers called from patches. `favorites.ts`: `favoritesBackend`, `favoriteItems()`. `FavoritesSettings.tsx` (export to a file, import with one confirmation for replace and other sites), `types.ts`.
 
 Valenced (`valenced/gif-picker-optimizer/js/`):
 - `index.tsx`: `plugin({...})` and the start wiring (`runtime.*`, `pickerModules.*`, expected patches, `AppState` flush).
-- `settingsStore.ts`: settings storage, hooks, `cacheControl` (stats, reset, patches). `settings.tsx`: settings page (Patches and Cache groups). `cacheStats.ts`: stats, reset, `patchStats`.
-- `state.ts`: `createTracking(...)` exports, `runtime`, `applyQueueSettings`. `nativeCache.ts`: `isNativeCached` (batched `Image.queryCache`). `tenor.ts`: `TenorPageResolver` (fallback only). `previews.ts`: `pickSrc`, `lookupFor`, `createLowResPages`, Tenor media from the saved src, `favoriteUrls`.
+- `settingsStore.ts`: settings storage, hooks, `cacheControl` (stats, reset, patches). `settings.tsx`: settings page in groups (Previews, Loading, GIF picker, Favourites, Patches, Cache); multi-value settings are one row with the current value that lists the values under it when tapped (`choiceRows`, one open at a time, plain rows so the group draws them); Patches and Cache show a summary row that expands. `cacheStats.ts`: stats, reset, `patchStats`.
+- `state.ts`: `createTracking(...)` exports, `runtime`, `applyQueueSettings`. `nativeCache.ts`: `isNativeCached` (batched `Image.queryCache`). `tenor.ts`: `TenorPageResolver` (fallback only). `previews.ts`: `pickSrc`, `lookupFor`, `createLowResPages`, Tenor media from the saved src.
 - `viewport.tsx`: `ViewportStore`, `OptimizedResultsList` (also applies queue settings), `useVisibleIndex`. `tile.tsx`: `OptimizedItem` (shared loader; `enabled` = Discord's tree has the Image, found once with `findInTree`, swapped with `replaceAt`) and the animated `Indicator`. `tree.ts`: typed tree helpers. `picker.tsx`: deferred picker and the categories page switch.
 - `modules.ts`: `pickerModules`. `favorites.ts`: `favoritesBackend`. `favoritesUi.tsx` (toast, confirm alert), `mainPage.tsx`, `favoritesSettings.tsx` (export to clipboard/share, import from clipboard).
 
@@ -95,10 +95,10 @@ Discord's "add favourite" action stores the item's `src`. Sending uses `item.url
 - `stillUrl()` in `lowres.ts` gives a still rendition when the source has one: Tenor PNG posters (`Ag`/`AN`/`Ae`/`AD`, checked against the Tenor API), Giphy `_s` renditions, `video.twimg.com/tweet_video` → `pbs.twimg.com/tweet_video_thumb`, and Discord's media proxy without `animated=true` (`format=jpeg` for videos).
 - Otherwise (Klipy, etc.) `StillTile` loads the preview, captures the first frame with `createImageBitmap` (falling back to a canvas copy), draws it with object-fit cover, and releases the element. Frames are kept in an LRU (`frames`, 300).
 - Still tiles are the plugin's own div (like the placeholder), not H. Clicks and the context menu still go to Discord's handlers with the original item.
-- Fallback chain on error: still URL → low-res preview (frame captured) → original.
+- Fallback chain on error: still URL (retried) → low-res preview (frame captured, retried). Never the original.
 
 **Errors and timeouts:**
-- If the preview fails, the tile switches to the original `src`.
+- A preview that fails is retried after 1, 3 and 9 s (`RETRY_DELAYS_MS` in tileLoader.ts; the queue slot is freed meanwhile, and `attempt` goes into the element key so the same URL loads again). Then a still image falls back to the animated preview; anything else gives up (`gaveUp`: a still, hollow ring) and tries again when the tile comes back. The full size original is never loaded instead (the user's call, 2026-11-17). The saved `failed` list only steers stills to the preview now; `pickSrc` ignores it.
 - After `loadTimeout` seconds, the queue slot is freed while the GIF keeps loading.
 - If the component throws, the ErrorBoundary fallback renders the original tile.
 

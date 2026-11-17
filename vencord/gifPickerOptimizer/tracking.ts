@@ -75,6 +75,7 @@ export function createTracking(o: TrackingOptions) {
             failed.add(url);
             forgetLoaded(url);
         },
+        forgetLoaded,
         drop,
         isDropped,
         onError: o.onError,

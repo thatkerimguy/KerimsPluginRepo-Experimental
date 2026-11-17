@@ -5,12 +5,11 @@
  */
 
 import { Button } from "@components/Button";
-import { Heading } from "@components/Heading";
-import { Paragraph } from "@components/Paragraph";
 import { chooseFile, saveFile } from "@utils/web";
 import { Alerts, showToast } from "@webpack/common";
 
 import { favoriteItems, favoritesBackend } from "./favorites";
+import { SettingsHeader } from "./SettingsHeader";
 import { cl } from "./state";
 import { exportFavorites, importFavorites, type ImportMode, importSummary, otherSitesWarning, type ParsedExport, parseExport } from "./transfer";
 
@@ -79,11 +78,10 @@ export function FavoritesSettings() {
 
     return (
         <section className={cl("settings-section")}>
-            <Heading>Favourites</Heading>
-            <Paragraph className={cl("muted")}>
-                {favorites.length} favourite GIF{favorites.length === 1 ? "" : "s"}. Export saves your favourites to a file, to keep or move to another account. Merge adds the file's GIFs
-                to your favourites; replace swaps your favourites for the file's.
-            </Paragraph>
+            <SettingsHeader
+                title="Favourites"
+                description={`${favorites.length} favourite GIF${favorites.length === 1 ? "" : "s"}. Export saves them to a file, to keep or move to another account. Merge adds a file's GIFs to yours; replace swaps yours for the file's.`}
+            />
             <div className={cl("actions")}>
                 <Button size="small" variant="secondary" disabled={!favorites.length} onClick={exportToFile}>Export favourites</Button>
                 <Button size="small" variant="secondary" onClick={() => void importFromFile("merge")}>Import and merge</Button>

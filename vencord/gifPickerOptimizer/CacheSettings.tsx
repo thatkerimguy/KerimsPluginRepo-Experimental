@@ -1,12 +1,12 @@
 /*
- * Cache stats and the reset button in the plugin's settings.
+ * The "Status and cache" part of the plugin's settings: patch status, cache stats, reset.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 import * as DataStore from "@api/DataStore";
 import { Button } from "@components/Button";
-import { Heading } from "@components/Heading";
+import { ExpandableSection } from "@components/ExpandableCard";
 import { Paragraph } from "@components/Paragraph";
 import { useEffect, useState } from "@webpack/common";
 
@@ -47,55 +47,86 @@ function resetCaches() {
     }
 }
 
-export function CacheSettings() {
+/** Re-renders every 2 seconds while the settings are open (live stats). Returns a function that re-renders now. */
+function useTicker() {
     const [, setTick] = useState(0);
-    const refresh = () => setTick(n => n + 1);
-
     useEffect(() => {
-        const timer = setInterval(refresh, 2000);
+        const timer = setInterval(() => setTick(n => n + 1), 2000);
         return () => clearInterval(timer);
     }, []);
+    return () => setTick(n => n + 1);
+}
+
+function StatsTable({ rows }: { rows: { label: string; value: string; }[]; }) {
+    return (
+        <table className={cl("stats")}>
+            <tbody>
+                {rows.map(r => (
+                    <tr key={r.label}>
+                        <td><Paragraph>{r.label}</Paragraph></td>
+                        <td><Paragraph>{r.value}</Paragraph></td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+/** "All 3 working" / "2 working, 1 not seen yet" */
+function patchesSummary() {
+    const all = patchStatuses();
+    if (!all.length) return "Enable the plugin to see its patches";
+    const count = (state: string) => all.filter(p => p.state === state).length;
+    const [working, waiting, failedCount] = [count("ok"), count("waiting"), count("failed")];
+    if (working === all.length) return `All ${working} patches working`;
+    return [working && `${working} working`, waiting && `${waiting} not seen yet`, failedCount && `${failedCount} failed`].filter(Boolean).join(", ");
+}
+
+/** Whether the plugin's hooks into Discord work */
+export function PatchesSettings() {
+    useTicker();
+    const statuses = patchStatuses();
+    return (
+        <section className={cl("settings-section")}>
+            <ExpandableSection renderContent={() => (
+                <>
+                    <StatsTable rows={statuses.map(p => ({ label: p.label, value: describePatch(p) }))} />
+                    <Paragraph className={cl("muted")}>
+                        One that stays "not seen yet" after you do what it says (or a Vencord patch warning in the console) means Discord changed its code: that part works like normal Discord.
+                    </Paragraph>
+                </>
+            )}>
+                <Paragraph weight="medium">{patchesSummary()}</Paragraph>
+            </ExpandableSection>
+        </section>
+    );
+}
+
+/** What the plugin remembers, and the reset button */
+export function CacheSettings() {
+    const refresh = useTicker();
+    const stats = cacheStats();
+    const memory = stats.find(r => r.label === "Memory used")?.value ?? "";
+    const remembered = stats.find(r => r.label === "Loaded GIFs remembered")?.value ?? "";
 
     return (
-        <section className={cl("cache")}>
-            <Heading>Cache</Heading>
-            <table className={cl("cache-stats")}>
-                <tbody>
-                    {cacheStats().map(s => (
-                        <tr key={s.label}>
-                            <td><Paragraph>{s.label}</Paragraph></td>
-                            <td><Paragraph>{s.value}</Paragraph></td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <Heading>Patches</Heading>
-            <table className={cl("cache-stats")}>
-                <tbody>
-                    {patchStatuses().map(p => (
-                        <tr key={p.label}>
-                            <td><Paragraph>{p.label}</Paragraph></td>
-                            <td><Paragraph>{describePatch(p)}</Paragraph></td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <Paragraph className={cl("cache-note")}>
-                A patch that stays "not seen yet" after doing what it says (or a Vencord patch warning in the console) means Discord changed its code: that part falls back to Discord's own behaviour.
-            </Paragraph>
-            <Button
-                variant="dangerSecondary"
-                size="small"
-                onClick={() => {
-                    resetCaches();
-                    refresh();
-                }}
-            >
-                Reset cache
-            </Button>
-            <Paragraph className={cl("cache-note")}>
-                Forgets loaded GIFs, previews, still frames and the saved Klipy lookups. Discord's own image cache isn't touched.
-            </Paragraph>
+        <section className={cl("settings-section")}>
+            <ExpandableSection renderContent={() => <StatsTable rows={stats.filter(r => r.label !== "Memory used")} />}>
+                <Paragraph weight="medium">{memory} in memory · {remembered} loaded GIFs remembered</Paragraph>
+            </ExpandableSection>
+            <div className={cl("actions")}>
+                <Button
+                    variant="dangerSecondary"
+                    size="small"
+                    onClick={() => {
+                        resetCaches();
+                        refresh();
+                    }}
+                >
+                    Reset cache
+                </Button>
+                <Paragraph className={cl("muted")}>Forgets loaded GIFs, previews, still frames and Klipy lookups. Discord's own image cache isn't touched.</Paragraph>
+            </div>
         </section>
     );
 }

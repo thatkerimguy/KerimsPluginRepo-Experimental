@@ -29,7 +29,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
     const original = normalizeUrl(src);
     // Hooks passed at render time: @webpack/common fills them in only once Discord's React
     // loads, after this module is evaluated (a module-level copy would hold undefined)
-    const { phase, chosen, seenBefore, setVisible, done: onDone, error: onError } = useTileLoader({ useState, useEffect, useRef }, tileEnv, {
+    const { phase, chosen, seenBefore, attempt, gaveUp, setVisible, done: onDone, error: onError } = useTileLoader({ useState, useEffect, useRef }, tileEnv, {
         original,
         index: rest.index,
         still,
@@ -74,7 +74,8 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
         const source: StillSource = { url: shown, capture: captureStill };
         return (
             <StillTile
-                key={shown}
+                // A retry of the same URL is a new element, so it loads again
+                key={`${attempt}:${shown}`}
                 viewRef={viewRef}
                 source={source}
                 video={source.capture && (rest.format === GIF_TYPE_VIDEO || isVideoUrl(shown))}
@@ -82,6 +83,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                 showProgress={showProgress}
                 seenBefore={seenBefore}
                 enter={!spinnerShown.current}
+                failed={gaveUp}
                 coords={coords}
                 onClick={click}
                 onContextMenu={contextMenu}
@@ -96,7 +98,8 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
 
     return (
         <Result
-            key={shown}
+            // A retry of the same URL is a new element, so it loads again
+            key={`${attempt}:${shown}`}
             {...rest}
             color={rest.color ?? PLACEHOLDER_COLOR}
             src={shown}
@@ -111,9 +114,10 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                             src={shown}
                             video={video}
                             loading={phase === "loading"}
-                            showProgress={showProgress && phase === "loading"}
+                            showProgress={showProgress && (phase === "loading" || gaveUp)}
                             seenBefore={seenBefore}
                             enter={!spinnerShown.current}
+                            failed={gaveUp}
                             onDone={onDone}
                             onError={onError}
                         />

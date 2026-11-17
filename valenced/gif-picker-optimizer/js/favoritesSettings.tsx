@@ -84,7 +84,7 @@ export function FavoritesSection() {
     return (
         <TableRowGroup
             title="Favourites"
-            description="Export and import move your favourites to another account: export on one, copy the text, then import on the other."
+            description="Move your favourites to another account: export on one, then import the copied text on the other."
         >
             <TableRow
                 label="Export favourites"

@@ -107,7 +107,8 @@ export function pickSrc(item: GifItem, still = false): string {
             ?? (formats && runtime.klipy!.peek(item.url, formats))
             ?? rewriteUrl(tenorMedia || original, q, item, { imagesOnly: true });
 
-        if (!low || low === original || failed.has(low)) return original;
+        // A preview that failed before is still used: tiles retry it rather than load the full size original
+        if (!low || low === original) return original;
         // Mobile tiles are images: an mp4/webm URL would never load
         if (isVideoUrl(low)) return original;
         return low;

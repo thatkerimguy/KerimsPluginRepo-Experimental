@@ -1,45 +1,70 @@
 # GIFs+
 
-A plugin for **Vencord** (desktop/web) and **Valenced** (mobile) that changes Discord's GIF picker. It was called GifPickerOptimizer before 1.6.0; your settings carry over.
+A faster GIF picker for Discord, as a plugin for **Vencord** (desktop and web) and **Valenced** (mobile). GIFs load one by one as small previews, and what you send is always the full size GIF.
 
-- **Sequential loading.** GIFs load in reading order, left to right and top to bottom, a few at a time. The next one starts only when one of them has finished loading (for videos, as soon as they can play, like Discord's own tiles). On desktop the limit is **Auto** by default: 2 on slow connections, up to 6 on fast ones, from the browser's connection speed estimate. You can set it from 1 (strictly one at a time) to 6 instead. On mobile it's 3 by default (1 to 6).
-- **Loading indicator.** Empty tiles show a breathing dot while they wait their turn. When a tile starts loading, the dot grows into a spinner, which turns into a progress line with a percentage once the download size is known. GIFs seen before (usually straight from cache) show a small shape morphing between a circle and a square instead.
-- **Low-resolution previews.** The picker shows an XS, S or SD version of each GIF. Clicking, tapping or favouriting a GIF still uses Discord's original item, so chat and your favourites always get the full-resolution GIF.
-- **Small memory footprint.** The plugin's caches are bounded: a few MB of URLs at most, plus up to 24 MB of still frames on desktop (only with still favourites on), captured at tile size.
-- **Cache stats and reset.** The plugin's settings show what's cached (remembered GIFs, saved Klipy and Tenor lookups, still frames) and about how much memory it uses, with a button to reset it.
-- **Patch status.** Settings → **Patches** shows which of the plugin's hooks into Discord are working. Discord changes its code often; when a hook stops matching, that part falls back to Discord's own behaviour, and this is where you'll see it.
-- **Scrolling back is instant.** Discord's GIF list already unloads GIFs you scroll far away from. The plugin remembers which ones finished loading, so when you scroll back they show straight from cache instead of waiting in the load queue, and GIFs that scrolled away before their turn never download.
-- **Remembers across restarts.** GIFs that loaded before (in the last two weeks) go first in the queue without a spinner after you restart Discord, since they're usually still in Discord's cache. Previews that failed aren't tried again for a week. On mobile, GIFs still in the device's image cache skip the queue entirely.
-- **Still favourites (optional, off by default).** The favourites tab shows still images instead of playing GIFs. The GIF you send still animates.
-- **Favourites only (optional, off by default).** Hides Trending GIFs and the other featured categories from the GIF picker's main page. The main page keeps the search bar (all GIFs) and the Favorites category, which opens your favourites with their own search, like normal Discord. The featured categories aren't fetched at all.
-- **Export and import.** Export your favourites as a file (desktop) or text (mobile), and import them on another account. The file has one GIF per line, so it's easy to read or edit. Import can **merge** into your favourites or **replace** them. Favourites can only hold about 750 KB in total (Discord's limit), so an import that would go over it is refused. Only `https` entries are imported, and if a file has GIFs from sites other than the usual GIF hosts (Tenor, Giphy, Klipy, Discord, Twitter, Imgur), the plugin lists those sites and asks first: a file from someone else could otherwise use your favourites to see when you open the GIF picker, or to send a different link than the GIF shows.
-- **Theme colours.** The plugin's indicators and buttons use Discord's theme colours, so they fit light, dark and custom themes.
-- **Faster GIF tab switch (mobile, on by default).** Discord builds the whole GIF picker in the same frame as the tab switch, so switching from emojis to GIFs freezes for a moment. The plugin switches the tab first and builds the picker right after.
+## Features
+
+### Loading
+- **One by one, in reading order.** GIFs load left to right and top to bottom, a few at a time, and the next starts when one finishes. GIFs on screen go first. How many load at once is up to you: on desktop **Auto** picks 2 on slow connections and up to 6 on fast ones; on mobile the default is 3.
+- **Slow GIFs don't hold things up.** After a few seconds (10 by default) the next GIF starts, and the slow one keeps loading in the background.
+- **Loading indicators.** A tile waiting its turn shows a breathing dot. When it starts loading, the dot grows into a spinner, which becomes a progress line with a percentage once the size is known. GIFs you've loaded before show a small morphing shape instead.
+- **Remembers what loaded.** Scroll back and GIFs you've seen show at once from cache. GIFs loaded in the last two weeks go first after a restart, since they're usually still in Discord's cache. On mobile, GIFs still in the phone's image cache skip the wait entirely.
+
+### Previews
+- **Small previews, full size sends.** The picker shows an XS, S or SD version of each GIF (S by default). Clicking, tapping or favouriting a GIF still uses Discord's original, so chat and your favourites get the full size GIF.
+- **Previews are retried, not swapped.** A preview that fails to load is tried again a few times. The plugin never falls back to downloading the full size GIF on its own.
+- **Still favourites (optional).** Favourites show as still images instead of playing. Sent GIFs still animate.
 
 | Source | How the preview is made |
 |---|---|
-| Klipy (Discord's default) | One extra call to Discord's own `/gifs/search` or `/gifs/trending-gifs` per results page, using a smaller `media_format` (`tinywebm`/`nanowebm` on desktop; on mobile only XS needs one, `nanowebp`, since Discord mobile already asks for `tinywebp`). The call starts at the same time as Discord's own, so GIFs only wait for it if it's still running when Discord's results arrive (3 seconds at most). Klipy gives every size a random file name, so the small URL can't be worked out from the full one. |
-| Klipy favourites | Discord stores these as the full-size `.gif`. The plugin searches Discord's `/gifs/search` once for the slug in the favourite's `klipy.com/gifs/<slug>` link, asking for a small webp, and keeps the match whose page URL is the same. Results are saved, so each favourite is only looked up once. |
-| Tenor | URL rewrite to Tenor's nano/tiny mp4 or animated webp. Discord mobile shows Tenor favourites as their page URL, so there the plugin uses the media URL saved with the favourite (no extra request); only when that isn't a Tenor URL does it follow the page's redirect once. |
-| Giphy | URL rewrite to `100w`/`200w`/`480w` |
-| Discord attachments, `media.discordapp.net`, `images-ext-*` (vx/fx/twitter and other embeds) | Discord media proxy with `width`, `height`, `format=webp` and `animated=true` |
-| `pbs.twimg.com` | `name=240x240` / `360x360` / `small` |
+| Klipy (Discord's GIF source) | A second request for the same results page in a smaller format, sent together with Discord's own. Klipy names every size differently, so the small URL can't be worked out from the full one. On mobile, S needs no extra request. |
+| Klipy favourites | Looked up once by the name in the favourite's Klipy link, then saved. |
+| Tenor | Tenor's own nano or tiny version. |
+| Giphy | Giphy's `100w` / `200w` / `480w` versions. |
+| Discord attachments and link embeds (vx/fx/twitter and others) | Discord's media proxy, resized. |
+| Twitter images | Twitter's smaller sizes. |
 
-Favourites saved from chat embeds are stored behind Discord's `images-ext` media proxy. For Tenor, Giphy, Klipy and Twitter links the plugin unwraps the proxy and uses the source's own small renditions.
+Favourites saved from chat embeds sit behind Discord's media proxy. For Tenor, Giphy, Klipy and Twitter the plugin uses the source's own small versions instead.
 
-If a preview fails to load, the tile falls back to the original URL.
-
-### Where still favourites come from
-
-| Source | Still image |
+| Source | Still image (still favourites) |
 |---|---|
-| Tenor | Tenor's PNG poster frame |
-| Giphy | Giphy's single-frame `_s` rendition |
-| Twitter GIFs (`video.twimg.com/tweet_video`) | The matching `pbs.twimg.com/tweet_video_thumb` image |
-| Discord attachments and embeds | Discord's media proxy without `animated=true` (first frame), or `format=jpeg` for videos |
-| Anything else, including Klipy | **Desktop:** the first frame is drawn onto a canvas and the GIF is released. **Mobile:** stays animated, because React Native can't pause an animated image from JavaScript. |
+| Tenor | Tenor's poster frame |
+| Giphy | Giphy's single frame version |
+| Twitter GIFs | The tweet's thumbnail |
+| Discord attachments and embeds | The first frame, from Discord's media proxy |
+| Anything else, including Klipy | **Desktop:** the first frame, captured locally. **Mobile:** stays animated (React Native can't pause an animated image). |
 
-## Vencord
+### GIF picker
+- **Favourites only (optional).** Hides Trending and the featured categories on the picker's main page. Search and Favorites stay.
+- **Faster GIF tab switch (mobile).** The GIF tab opens at once, and the picker is built right after, instead of the app freezing for a moment.
+
+### Favourites
+- **Export and import.** Save your favourites to a file (desktop) or the clipboard (mobile), and import them on another account. Import can **merge** into your favourites or **replace** them. Imports over Discord's favourites limit are refused.
+- **Safe imports.** Only `https` entries are imported. If a file has GIFs from sites other than the usual GIF hosts, the plugin lists them and asks first: a file from someone else could use your favourites to see when you open the picker, or to send a different link than the GIF shows.
+
+### Status and cache
+- **Patch status.** Settings show whether each of the plugin's hooks into Discord works. Discord changes its code often; when a hook stops matching, that part works like normal Discord, and this is where you'll see it.
+- **Cache stats and reset.** See what the plugin remembers and about how much memory it uses, and reset it. Its caches are bounded: a few MB of URLs, plus up to 24 MB of still frames on desktop.
+- **Theme colours.** Indicators and buttons use Discord's theme colours, so they fit light, dark and custom themes.
+
+## Settings
+
+| Section | Setting | Default |
+|---|---|---|
+| Previews | Preview size (XS, S, SD, Original; desktop also Auto) | S |
+| | Small Klipy previews | On |
+| | Still favourites | Off |
+| Loading | Load one by one | On |
+| | GIFs at the same time | Auto (desktop), 3 (mobile) |
+| | On-screen GIFs first (desktop) | On |
+| | Skip slow GIFs after | 10 seconds |
+| | Loading indicators | On |
+| GIF picker | Favourites only | Off |
+| | Faster GIF tab switch (mobile) | On |
+| Favourites | Export, import and merge, import and replace | |
+| Status and cache | Patches, remembered GIFs (1000), cache stats, reset | |
+
+## Install on Vencord
 
 Vencord only loads user plugins in a build you make from source.
 
@@ -48,7 +73,7 @@ git clone https://github.com/Vendicated/Vencord && cd Vencord
 pnpm install --frozen-lockfile
 ```
 
-Copy the `vencord\gifPickerOptimizer` folder to `Vencord\src\userplugins\gifPickerOptimizer`, then:
+Copy the `vencord\gifPickerOptimizer` folder to `Vencord\src\userplugins\gifPickerOptimizer` (delete an older copy of that folder first), then:
 
 ```bash
 pnpm build
@@ -58,15 +83,9 @@ pnpm build
 pnpm inject
 ```
 
-Enable **GIFs+** in Settings → Vencord → Plugins. The default quality is **S**. **Auto** picks S, or SD on screens with 2× pixel density or more (the picker's tiles are about 200 px wide).
+Enable **GIFs+** in Settings → Vencord → Plugins. Settings from the plugin's old name, GifPickerOptimizer, carry over.
 
-GIFs loading at the same time defaults to **Auto** on new installs. Vencord saves a setting's default the first time it's read, so if you used the plugin before, pick **Auto** in the "GIFs loading at the same time" dropdown yourself to switch.
-
-Vencord already has a built-in plugin called BetterGifPicker, so this one is called GIFs+. If you used GifPickerOptimizer before, your settings move over by themselves.
-
-## Valenced
-
-### Install from the plugin repository
+## Install on Valenced
 
 Add this URL as a plugin repository in Valenced, then install **GIFs+** from it:
 
@@ -74,23 +93,23 @@ Add this URL as a plugin repository in Valenced, then install **GIFs+** from it:
 https://thatkerimguy.github.io/KerimsPluginRepo/index.json
 ```
 
-Updates come through the same repository. The `Publish Valenced repository` workflow publishes it to GitHub Pages: on every push to `main` that changes `valenced/`, it builds any plugin whose `manifest.json` version isn't published yet. To release a change, bump `version` in `valenced/gif-picker-optimizer/manifest.json`.
+Updates come through the same repository.
 
 ### Test builds
 
-[KerimsPluginRepo-Experimental](https://github.com/thatkerimguy/KerimsPluginRepo-Experimental) is a copy of this repository for trying changes before they're released. Every push there publishes a new build, so it can be broken:
+[KerimsPluginRepo-Experimental](https://github.com/thatkerimguy/KerimsPluginRepo-Experimental) gets every change first, so its builds can be broken:
 
 ```
 https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/index.json
 ```
 
-It installs as **GIFs+ Experimental**, next to GIFs+ and with its own saved data. Enable only one of the two at a time.
+It installs as **GIFs+ Experimental**, next to GIFs+ and with its own saved data. Enable only one of the two.
 
 ### Build it yourself
 
-Valenced plugins are built with the [Valenced plugin template](https://github.com/Valenced/valenced-plugin-template). The template needs [Bun](https://bun.com/) to build.
+Valenced plugins are built with the [Valenced plugin template](https://github.com/Valenced/valenced-plugin-template), which needs [Bun](https://bun.com/) and Node 22.18 or newer.
 
-1. Clone the template and install its dependencies:
+1. Set up the template:
 
    ```bash
    git clone https://github.com/Valenced/valenced-plugin-template
@@ -104,26 +123,26 @@ Valenced plugins are built with the [Valenced plugin template](https://github.co
    bun install
    ```
 
+   This takes the newest plugin CLI and types. `.github/scripts/setup-valenced-template.sh` (bash) sets the template up with the versions this plugin is tested with instead.
+
 2. Copy the `valenced\gif-picker-optimizer` folder into the template's `plugins` folder, so you have `plugins\gif-picker-optimizer\manifest.json`.
 
-3. Build the JS bundle. The output is `plugins\gif-picker-optimizer\build\js\index.js`:
+3. Build it. The output is `plugins\gif-picker-optimizer\build\js\index.js`:
 
    ```bash
    bun run build gif-picker-optimizer
    ```
 
-   To build the installable ZIP (`build\dist\thatkerimguy.gif-picker-optimizer@1.6.0.zip`), run `gradlew packageGifPickerOptimizer`. That needs the JDK and Android SDK listed in the template's README.
+   `gradlew packageGifPickerOptimizer` builds an installable ZIP. That needs the JDK and Android SDK listed in the template's README.
 
-4. Load it in Valenced, either with `bun run serve` during development or by publishing the template repository as a plugin repository and adding its URL in Valenced.
-
-Then enable **GIFs+** in Valenced's plugin list. The default quality is **S**: Discord mobile already loads the S (`tinywebp`) rendition of Klipy GIFs, so S needs no extra request. XS adds one request per search and shows about 90 px previews on tiles that are several times wider on a phone screen.
+4. Load it in Valenced, either with `bun run serve` during development or by publishing the template repository as a plugin repository.
 
 ## Development
 
 - The files both builds share are edited in `vencord/gifPickerOptimizer` and copied with `node .github/scripts/sync-shared.mjs` (CI fails when they differ).
-- Tests: see [TESTING.md](TESTING.md) (`cd tests`, `npm ci`, `npm test`), including a check of the Vencord patches against Discord's current code and a checklist for trying a build in Discord.
-- CI builds the Valenced plugin with the template, plugin CLI and types pinned to tested commits (`.github/scripts/setup-valenced-template.sh`). A plain `bun install` in the template, as above, takes their latest versions.
-- [CHANGELOG.md](CHANGELOG.md) has what changed and how it was checked.
+- Tests and the checklist for trying a build in Discord: [TESTING.md](TESTING.md).
+- Releases: the `Publish Valenced repository` workflow publishes to GitHub Pages. It builds each plugin whose `manifest.json` version isn't published yet, so bump `version` in `valenced/gif-picker-optimizer/manifest.json` to release.
+- What changed and how it was checked: [CHANGELOG.md](CHANGELOG.md).
 
 ## About the code
 

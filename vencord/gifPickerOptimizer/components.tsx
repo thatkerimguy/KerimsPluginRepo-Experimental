@@ -16,9 +16,10 @@ import type { TileCoords } from "./types";
 /**
  * - queued: a breathing dot
  * - loading: the dot grows into a spinner, which flattens into a progress line once progress is known
- * - cached (seenBefore / seen, normally straight from the cache): a breathing circle that morphs into a square and back
+ * - cached (seen in an earlier session, normally straight from the cache): a breathing circle that morphs into a square and back
+ * - failed (the preview failed every retry; tried again when the tile comes back): a still, hollow ring
  */
-export type IndicatorState = "queued" | "loading" | "cached";
+export type IndicatorState = "queued" | "loading" | "cached" | "failed";
 
 /** Lengths of the looping animations in styles.css (vc-gpo-breathe, vc-gpo-morph) */
 const LOOP_MS = { queued: 1600, cached: 2400 } as const;
@@ -53,6 +54,7 @@ export function Indicator({ state, progress, enter = true }: {
     let shape: ReactNode;
     if (state === "queued") shape = <div className={cl("dot")} style={inStep(LOOP_MS.queued)} />;
     else if (state === "cached") shape = <div className={cl("shape")} style={inStep(LOOP_MS.cached)} />;
+    else if (state === "failed") shape = <div className={cl("failed")} />;
     else if (p == null) shape = <div className={cl("spinner", { "spinner-enter": enter })} />;
     else shape = (
         <div className={cl("line")}>
@@ -78,6 +80,8 @@ interface LoadOverlayProps {
     seenBefore: boolean;
     /** False when the placeholder already showed a spinner (Klipy lookup), so it doesn't grow out of a dot again */
     enter: boolean;
+    /** Every retry failed: the failed mark instead of a spinner */
+    failed: boolean;
     onDone(): void;
     onError(): void;
 }
@@ -92,7 +96,7 @@ const HAVE_FUTURE_DATA = 3;
  * Rendered inside Discord's GIF tile (through renderExtras). Watches the tile's
  * <video>/<img> for load events and draws the progress overlay.
  */
-export function LoadOverlay({ src, video, loading, showProgress, seenBefore, enter, onDone, onError }: LoadOverlayProps) {
+export function LoadOverlay({ src, video, loading, showProgress, seenBefore, enter, failed, onDone, onError }: LoadOverlayProps) {
     // Fixed at mount, so the shimmer doesn't jump on re-render
     const [sync] = useState(shimmerInStep);
     const ref = useRef<HTMLDivElement>(null);
@@ -179,10 +183,12 @@ export function LoadOverlay({ src, video, loading, showProgress, seenBefore, ent
 
     return (
         <div ref={ref} className={cl("overlay", { "overlay-loading": loading })} style={sync}>
-            {showProgress && (seenBefore
-                // Carries on from the placeholder's shape, so no fade-in
-                ? <Indicator state="cached" enter={false} />
-                : <Indicator state="loading" progress={progress} enter={enter} />)}
+            {showProgress && (failed
+                ? <Indicator state="failed" />
+                : seenBefore
+                    // Carries on from the placeholder's shape, so no fade-in
+                    ? <Indicator state="cached" enter={false} />
+                    : <Indicator state="loading" progress={progress} enter={enter} />)}
         </div>
     );
 }
@@ -195,6 +201,7 @@ interface StillTileProps {
     showProgress: boolean;
     seenBefore: boolean;
     enter: boolean;
+    failed: boolean;
     coords: TileCoords;
     onClick(e: MouseEvent): void;
     onContextMenu(e: MouseEvent): void;
@@ -204,7 +211,7 @@ interface StillTileProps {
 }
 
 /** A favourite shown as a still image instead of Discord's (animated) tile */
-export function StillTile({ viewRef, source, video, loading, showProgress, seenBefore, enter, coords, onClick, onContextMenu, extras, onDone, onError }: StillTileProps) {
+export function StillTile({ viewRef, source, video, loading, showProgress, seenBefore, enter, failed, coords, onClick, onContextMenu, extras, onDone, onError }: StillTileProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cbs = useRef({ onDone, onError });
     cbs.current = { onDone, onError };
@@ -253,9 +260,11 @@ export function StillTile({ viewRef, source, video, loading, showProgress, seenB
                         onError={() => cbs.current.onError()}
                     />
                 )}
-            {loading && showProgress && (seenBefore
-                ? <Indicator state="cached" enter={false} />
-                : <Indicator state="loading" enter={enter} />)}
+            {showProgress && (failed
+                ? <Indicator state="failed" />
+                : loading && (seenBefore
+                    ? <Indicator state="cached" enter={false} />
+                    : <Indicator state="loading" enter={enter} />))}
             {extras}
         </div>
     );

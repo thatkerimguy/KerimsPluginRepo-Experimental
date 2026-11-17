@@ -25,6 +25,7 @@ function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; } = {}) {
         wasSeen: u => !!opts.seen?.has(u),
         markLoaded: u => { log.push(`loaded ${u}`); opts.cached?.add(u); },
         markFailed: u => log.push(`failed ${u}`),
+        forgetLoaded: u => { log.push(`forgot ${u}`); opts.cached?.delete(u); },
         drop: t => { if (t) { dropped.add(t); queue.cancel(t); } },
         isDropped: t => dropped.has(t),
         onError: () => { },
@@ -38,7 +39,7 @@ const renders: Record<string, { phase: string; seenBefore: boolean; }[]> = {};
 function Tile(p: { id: string; env: TileEnv; index: number; still?: boolean; enabled?: boolean; pick: () => string; lookup?: () => Promise<unknown> | null; probe?: (u: string) => Promise<boolean>; }) {
     const api = useTileLoader(React as any, p.env, {
         original: `orig-${p.id}`, index: p.index, still: !!p.still, enabled: p.enabled, loadTimeout: 30, initiallyVisible: true,
-        pick: p.pick, lookup: p.lookup ?? (() => null), probeCache: p.probe,
+        pick: p.pick, lookup: p.lookup ?? (() => null), probeCache: p.probe, retryDelaysMs: [5, 5, 5],
     });
     apis[p.id] = api;
     (renders[p.id] ??= []).push({ phase: api.phase, seenBefore: api.seenBefore });
@@ -116,20 +117,81 @@ test("Disabled during a lookup: restarts and loads when enabled again; the slot 
     act(() => root.unmount());
 });
 
-test("Preview error falls back to the original; native cache probe skips the queue", async () => {
-    const { env, log } = makeEnv({ cached: new Set() });
+test("native cache probe skips the queue", async () => {
+    const { env } = makeEnv({ cached: new Set() });
     let root: any;
-    let failedOnce = false;
-    await act(async () => { root = TR.create(React.createElement(React.Fragment, null,
-        React.createElement(Tile, { id: "e", env, index: 0, pick: () => (failedOnce ? "orig-e" : "low-e") }),
-        React.createElement(Tile, { id: "p", env, index: 1, pick: () => "low-p", probe: async () => true }))); });
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "p", env, index: 0, pick: () => "low-p", probe: async () => true })); });
     await settle();
     assert.equal(apis.p.phase, "done", "native cache hit shown without a turn");
+    act(() => root.unmount());
+});
+
+/** Fails the tile's current image `times` times, waiting for each retry to start loading again */
+async function failTimes(id: string, times: number) {
+    for (let i = 0; i < times; i++) {
+        await act(async () => apis[id].error());
+        await settle();
+    }
+}
+
+test("a failed preview is retried, never swapped for the original", async () => {
+    const { env, log } = makeEnv({ cached: new Set() });
+    let root: any;
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "e", env, index: 0, pick: () => "low-e" })); });
+    await settle();
     assert.equal(apis.e.chosen, "low-e");
-    failedOnce = true;
-    await act(async () => apis.e.error()); await settle();
-    assert.ok(log.includes("failed low-e")); assert.equal(apis.e.chosen, "orig-e"); assert.equal(apis.e.phase, "loading");
-    await act(async () => apis.e.error()); await settle();
+    await failTimes("e", 3);
+    assert.equal(apis.e.phase, "loading", "loading again after each retry");
+    assert.equal(apis.e.chosen, "low-e");
+    assert.equal(apis.e.attempt, 3, "each retry is a new element");
+    assert.ok(!log.includes("failed low-e"), "not marked failed while retrying");
+    // The fourth failure: no other preview, so it gives up instead of loading the original
+    await failTimes("e", 1);
     assert.equal(apis.e.phase, "done");
+    assert.equal(apis.e.gaveUp, true);
+    assert.equal(apis.e.chosen, "low-e");
+    assert.ok(log.includes("failed low-e"));
+    // It loads after all: the failed mark goes away
+    await act(async () => apis.e.done());
+    assert.equal(apis.e.gaveUp, false);
+    act(() => root.unmount());
+});
+
+test("a retry that works finishes normally", async () => {
+    const { env, log } = makeEnv({ cached: new Set() });
+    let root: any;
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "r", env, index: 0, pick: () => "low-r" })); });
+    await settle();
+    await failTimes("r", 1);
+    assert.equal(apis.r.phase, "loading");
+    await act(async () => apis.r.done());
+    assert.equal(apis.r.phase, "done");
+    assert.equal(apis.r.gaveUp, false);
+    assert.ok(log.includes("loaded low-r"));
+    act(() => root.unmount());
+});
+
+test("a still image that keeps failing falls back to the animated preview", async () => {
+    const { env, log } = makeEnv({ cached: new Set() });
+    let root: any;
+    const stillFailed = () => log.includes("failed still-s");
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "s", env, index: 0, still: true, pick: () => (stillFailed() ? "low-s" : "still-s") })); });
+    await settle();
+    assert.equal(apis.s.chosen, "still-s");
+    await failTimes("s", 4);
+    assert.equal(apis.s.chosen, "low-s", "the animated preview, not the original");
+    assert.equal(apis.s.phase, "loading");
+    assert.equal(apis.s.gaveUp, false);
+    act(() => root.unmount());
+});
+
+test("an original that fails just stops", async () => {
+    const { env } = makeEnv({ cached: new Set() });
+    let root: any;
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "o", env, index: 0, pick: () => "orig-o" })); });
+    await settle();
+    await failTimes("o", 1);
+    assert.equal(apis.o.phase, "done");
+    assert.equal(apis.o.attempt, 0, "no retry loop for the original (Discord's own tile handles it)");
     act(() => root.unmount());
 });
