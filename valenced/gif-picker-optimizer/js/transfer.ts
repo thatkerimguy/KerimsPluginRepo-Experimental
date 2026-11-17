@@ -177,9 +177,13 @@ export function applyImport(gifs: FavoriteMap, file: ExportFile, mode: ImportMod
     }
     let order = nextOrder(gifs);
     let added = 0;
+    // Keys without their signature, so each GIF is checked in O(1) (what `findKey` matches)
+    const known = new Set(Object.keys(gifs).map(withoutSignature));
     // Oldest first, so the newest gets the highest order and is shown first
     for (const g of [...file.gifs].reverse()) {
-        if (findKey(gifs, g.url)) continue;
+        const plain = withoutSignature(g.url);
+        if (known.has(plain)) continue;
+        known.add(plain);
         gifs[g.url] = {
             src: g.src,
             format: g.format ?? GIF_TYPE_IMAGE,

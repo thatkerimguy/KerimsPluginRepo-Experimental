@@ -15,8 +15,6 @@ import { PrecacheButton, precacheStats, usePrecacheUpdates } from "./favoritesUi
 import { pickerModules } from "./modules";
 import { runtime } from "./state";
 
-const { Text } = Design;
-
 export interface CategoriesPageProps {
     columns?: number;
     favoritesCategory?: { type: unknown; name: string; src: string; format?: number; } | null;
@@ -33,6 +31,8 @@ const gutter = () => pickerModules.utils?.GIF_PICKER_GUTTER_SPACING ?? 8;
 
 /** "Favorites · 120 GIFs, 80 precached  [Precache]" */
 function FavoritesBar() {
+    // Read on render: Discord's design module isn't loaded when the script is evaluated (lazy.ts)
+    const { Text } = Design;
     usePrecacheUpdates();
     const items = favoriteItems();
     if (!items.length || !runtime.precache) return null;
@@ -53,6 +53,7 @@ function FavoritesBar() {
  * loading skeletons, so it isn't reused.
  */
 export function MainPage({ props }: { props: CategoriesPageProps; }) {
+    const { Text } = Design;
     const CategoryView = pickerModules.categoryView!.default;
     const columns = Math.max(1, props.columns || 2);
 

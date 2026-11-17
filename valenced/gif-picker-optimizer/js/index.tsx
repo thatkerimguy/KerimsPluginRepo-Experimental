@@ -140,8 +140,8 @@ export default plugin<{ jsonStorage: Settings; }>({
                 runtime.lowRes?.clear();
                 runtime.lowRes = undefined;
                 runtime.frecency = undefined;
-                runtime.klipy?.flush();
-                runtime.tenorPages?.flush();
+                runtime.klipy?.stop();
+                runtime.tenorPages?.stop();
                 runtime.tenorPages = undefined;
                 runtime.klipy = undefined;
                 runtime.http = undefined;

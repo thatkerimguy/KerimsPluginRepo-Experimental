@@ -21,7 +21,7 @@ import { useSettings } from "./settingsStore";
 import type { GifItem } from "./state";
 import { drop, failed, forgetLoaded, isCached, isDropped, isFavoriteItem, isPrecached, markLoaded, queue, runtime } from "./state";
 import { lazy } from "./lazy";
-import { replaceInTree } from "./tree";
+import { replaceInTree, treeHas } from "./tree";
 import { useVisibleIndex } from "./viewport";
 
 /**
@@ -270,13 +270,15 @@ interface LoaderOptions {
     sequential: boolean;
     concurrency: number;
     loadTimeout: number;
+    /** Discord's tile has an Image the plugin can swap. Without one, the tile doesn't queue. */
+    enabled: boolean;
 }
 
 /**
  * The load lifecycle of one tile: queue ticket, visibility, timeouts and fallbacks.
  * Tiles that scroll away are unmounted (and recycled) by Discord's FlashList.
  */
-function useTileLoader({ item, index, still, sequential, concurrency, loadTimeout }: LoaderOptions) {
+function useTileLoader({ item, index, still, sequential, concurrency, loadTimeout, enabled }: LoaderOptions) {
     /** The URL being shown or loaded, null until the tile's turn */
     const [chosen, setChosen] = useState<string | null>(() => {
         const url = pickSrc(item, still);
@@ -303,7 +305,7 @@ function useTileLoader({ item, index, still, sequential, concurrency, loadTimeou
 
     // Wait for a turn in the load queue
     useEffect(() => {
-        if (phase !== "queued") return;
+        if (phase !== "queued" || !enabled) return;
 
         // Loaded recently: show it from cache right away
         const cached = pickSrc(item, still);
@@ -365,13 +367,22 @@ function useTileLoader({ item, index, still, sequential, concurrency, loadTimeou
         return () => {
             if (!started) drop(ticket);
         };
-    }, [phase, still]);
+    }, [phase, still, enabled]);
+
+    // Discord's tile lost its Image (unknown tree shape): don't hold a queue slot for
+    // it. The queue effect above queues again once the Image is back.
+    useEffect(() => {
+        if (!enabled) drop(ticketRef.current);
+    }, [enabled]);
 
     // The still previews setting changed: pick the URL again
     const stillRef = useRef(still);
     useEffect(() => {
         if (stillRef.current === still) return;
         stillRef.current = still;
+        // Still waiting: the queue effect above already re-ran for the new setting and
+        // queued a fresh ticket. Dropping it here would leave the tile waiting forever.
+        if (phase === "queued") return;
         drop(ticketRef.current);
         setChosen(null);
         setProgress(null);
@@ -440,10 +451,7 @@ function useTileLoader({ item, index, still, sequential, concurrency, loadTimeou
         if (total > 0) setProgress(loadedBytes / total);
     };
 
-    /** Gives up the queue slot (the tile can't be optimized) */
-    const cancel = () => drop(ticketRef.current);
-
-    return { phase, chosen, precached, progress, original, done, error, reportProgress, cancel };
+    return { phase, chosen, precached, progress, done, error, reportProgress };
 }
 
 export function OptimizedItem({ props, render }: { props: ItemProps; render: (p: ItemProps) => any; }) {
@@ -455,13 +463,17 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     const tree = render(props);
     const still = stillFavorites && isFavoriteItem(item);
 
-    const { phase, chosen, precached, progress, original, done, error, reportProgress, cancel } = useTileLoader({
-        item, index, still, sequential, concurrency, loadTimeout,
-    });
-
+    const original = normalizeUrl(item.src);
     const isImage = (n: any) => isValidElement(n) && normalizeUrl((n.props as any)?.source?.uri ?? "") === original;
+    // Unknown tree shape: leave Discord's tile alone and don't hold up the queue
+    const hasImage = treeHas(tree, isImage);
 
-    const [result, hit] = replaceInTree(tree, isImage, (img: any) => {
+    const { phase, chosen, precached, progress, done, error, reportProgress } = useTileLoader({
+        item, index, still, sequential, concurrency, loadTimeout, enabled: hasImage,
+    });
+    if (!hasImage) return tree;
+
+    const [result] = replaceInTree(tree, isImage, (img: any) => {
         const imgProps = img.props;
 
         // One Indicator at the same place in the frame from queued to loaded, so it animates between states
@@ -515,12 +527,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         );
     });
 
-    // Unknown tree shape: leave Discord's tile alone and don't hold up the queue
-    useEffect(() => {
-        if (!hit) cancel();
-    }, [hit]);
-
-    return hit ? result : tree;
+    return result;
 }
 
 const styles = lazy(() => StyleSheet.create({

@@ -134,6 +134,34 @@ function sourceUrl(url: string): string {
     return normalizeUrl(url);
 }
 
+/**
+ * For a URL Discord's media proxy can resize (CDN attachments, media.discordapp.net,
+ * images-ext), points it at the proxy and returns true. False for anything else.
+ */
+function toMediaProxy(u: ParsedUrl): boolean {
+    const isCdnAttachment = u.hostname === "cdn.discordapp.com" && /^\/(ephemeral-)?attachments\//.test(u.pathname);
+    if (isCdnAttachment) u.host = u.hostname = "media.discordapp.net";
+    return isCdnAttachment || u.hostname === "media.discordapp.net" || IMAGES_EXT_RE.test(u.hostname);
+}
+
+/**
+ * Asks the media proxy for `quality`'s size, keeping the aspect ratio and never
+ * bigger than the original. False when the original is known to be no bigger.
+ */
+function setProxySize(u: ParsedUrl, quality: Exclude<Quality, "original">, dims?: { width?: number; height?: number; }): boolean {
+    const cap = QUALITY_CAP[quality];
+    const w = dims?.width ?? 0;
+    const h = dims?.height ?? 0;
+    if (!(w > 0 && h > 0)) {
+        setParam(u, "width", String(cap));
+        return true;
+    }
+    const scale = Math.min(1, cap / Math.max(w, h));
+    setParam(u, "width", String(Math.max(1, Math.round(w * scale))));
+    setParam(u, "height", String(Math.max(1, Math.round(h * scale))));
+    return scale < 1;
+}
+
 export function isVideoUrl(url: string): boolean {
     const u = parseUrl(url);
     return u != null && VIDEO_EXT_RE.test(mediaPath(u));
@@ -195,31 +223,19 @@ export function rewriteUrl(src: string, quality: Quality, dims?: { width?: numbe
     }
 
     // Discord CDN, media proxy and external media proxy (images-ext, used for vx/fx/twitter and every other embed)
-    const isCdnAttachment = host === "cdn.discordapp.com" && /^\/(ephemeral-)?attachments\//.test(u.pathname);
-    if (isCdnAttachment || host === "media.discordapp.net" || IMAGES_EXT_RE.test(host)) {
-        const path = mediaPath(u);
+    const path = mediaPath(u);
+    if (toMediaProxy(u)) {
         const isVideo = VIDEO_EXT_RE.test(path);
         // Desktop plays these as videos, and the media proxy can't shrink a video into
         // a video. Mobile shows proxied videos as animated webp (`animated=true`, like
         // Discord mobile itself), and that can be resized like any image.
         if (isVideo && !(imagesOnly && IMAGES_EXT_RE.test(host))) return null;
 
-        if (isCdnAttachment) u.host = u.hostname = "media.discordapp.net";
+        // Already small: only worth proxying to turn a GIF or video into webp
+        if (!setProxySize(u, quality, dims) && !path.endsWith(".gif") && !isVideo) return null;
 
-        const cap = QUALITY_CAP[quality];
-        const w = dims?.width ?? 0;
-        const h = dims?.height ?? 0;
-        if (w > 0 && h > 0) {
-            // Don't ask for something bigger than the original
-            const scale = Math.min(1, cap / Math.max(w, h));
-            if (scale >= 1 && !path.endsWith(".gif") && !isVideo) return null;
-            setParam(u, "width", String(Math.max(1, Math.round(w * scale))));
-            setParam(u, "height", String(Math.max(1, Math.round(h * scale))));
-        } else {
-            setParam(u, "width", String(cap));
-        }
-
-        if (isVideo || path.endsWith(".gif") || path.endsWith(".webp") || path.endsWith(".avif") || !/\.(png|jpe?g)$/.test(path)) {
+        // Anything that may be animated (GIF, webp, avif, video, unknown) stays animated as webp
+        if (!/\.(png|jpe?g)$/.test(path)) {
             setParam(u, "format", "webp");
             setParam(u, "animated", "true");
         }
@@ -266,23 +282,9 @@ export function stillUrl(src: string, quality: Quality, dims?: { width?: number;
 
     // Discord's media proxy returns the first frame unless `animated=true` is asked for,
     // and a thumbnail for videos
-    const isCdnAttachment = host === "cdn.discordapp.com" && /^\/(ephemeral-)?attachments\//.test(u.pathname);
-    if (isCdnAttachment || host === "media.discordapp.net" || IMAGES_EXT_RE.test(host)) {
-        if (isCdnAttachment) u.host = u.hostname = "media.discordapp.net";
+    if (toMediaProxy(u)) {
         u.params = u.params.filter(([k]) => k !== "animated");
-
-        if (quality !== "original") {
-            const cap = QUALITY_CAP[quality];
-            const w = dims?.width ?? 0;
-            const h = dims?.height ?? 0;
-            if (w > 0 && h > 0) {
-                const scale = Math.min(1, cap / Math.max(w, h));
-                setParam(u, "width", String(Math.max(1, Math.round(w * scale))));
-                setParam(u, "height", String(Math.max(1, Math.round(h * scale))));
-            } else {
-                setParam(u, "width", String(cap));
-            }
-        }
+        if (quality !== "original") setProxySize(u, quality, dims);
         setParam(u, "format", VIDEO_EXT_RE.test(mediaPath(u)) ? "jpeg" : "webp");
         return stringifyUrl(u);
     }

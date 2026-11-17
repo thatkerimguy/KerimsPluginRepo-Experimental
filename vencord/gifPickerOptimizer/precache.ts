@@ -10,6 +10,7 @@
  */
 
 import { LruCache } from "./cache";
+import { Persisted } from "./persist";
 
 /** A GIF to precache: resolves the URL its tile shows (some need a lookup first) */
 export type PrecacheJob = () => Promise<string | null> | string | null;
@@ -31,7 +32,6 @@ export interface PrecacheOptions {
 
 const MAX_ENTRIES = 20_000;
 const CONCURRENCY = 3;
-const SAVE_DELAY_MS = 2000;
 /** Progress updates are sent at most this often (one per GIF re-rendered every listener) */
 const NOTIFY_INTERVAL_MS = 250;
 
@@ -40,31 +40,31 @@ export class Precacher {
     private urls = new LruCache<string, number>(MAX_ENTRIES);
     private listeners = new Set<() => void>();
     private current: { cancelled: boolean; } | null = null;
-    private saveTimer: ReturnType<typeof setTimeout> | undefined;
     private notifyTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Saving replaces the saved list, so it waits until the list was read */
-    private loadDone = false;
-    private dirty = false;
-    /** Bumped by `clear()`, so a load that finishes afterwards doesn't bring old entries back */
-    private generation = 0;
+    private saved: Persisted<string[]>;
     /** The run in progress, if any */
     progress: PrecacheProgress | null = null;
     /** Bumped whenever the set of precached URLs changes */
     version = 0;
 
     constructor(private opts: PrecacheOptions) {
-        const { generation } = this;
-        opts.load().then(urls => {
-            if (generation !== this.generation) return;
-            for (const url of urls ?? []) {
-                if (typeof url === "string" && !this.urls.has(url)) this.urls.set(url, 0);
-            }
-            this.version++;
-            this.notify();
-        }, () => { }).finally(() => {
-            this.loadDone = true;
-            if (this.dirty) this.scheduleSave();
+        this.saved = new Persisted({
+            load: () => opts.load(),
+            save: urls => opts.save(urls),
+            apply: urls => this.merge(urls),
+            snapshot: () => [...this.urls.entries()].map(([url]) => url),
         });
+    }
+
+    /** Saved URLs go under this session's (least recently used first) */
+    private merge(urls: unknown) {
+        if (!Array.isArray(urls)) return;
+        const current = [...this.urls.entries()];
+        this.urls.clear();
+        for (const url of urls) if (typeof url === "string") this.urls.set(url, 0);
+        for (const [url, at] of current) this.urls.set(url, at);
+        this.version++;
+        this.notify();
     }
 
     get size() {
@@ -133,14 +133,14 @@ export class Precacher {
     mark(url: string) {
         if (!this.urls.has(url)) this.version++;
         this.urls.set(url, Date.now());
-        this.scheduleSave();
+        this.saved.changed();
     }
 
     /** A precached URL that didn't load after all (gone, or its preview fails) */
     forget(url: string) {
         if (!this.urls.delete(url)) return;
         this.version++;
-        this.scheduleSave();
+        this.saved.changed();
     }
 
     approxBytes() {
@@ -149,40 +149,25 @@ export class Precacher {
 
     /** Forgets every precached URL, also the saved ones */
     clear() {
-        this.generation++;
-        this.loadDone = true;
         this.cancel();
         this.urls.clear();
         this.version++;
-        this.dirty = true;
-        this.flush();
+        this.saved.reset();
         this.notify();
     }
 
     /** Saves anything pending right away (call when the plugin stops) */
     flush() {
-        if (this.saveTimer) clearTimeout(this.saveTimer);
-        this.saveTimer = undefined;
-        if (!this.loadDone || !this.dirty) return;
-        this.dirty = false;
-        try {
-            this.opts.save([...this.urls.entries()].map(([url]) => url));
-        } catch { }
+        this.saved.flush();
     }
 
     /** Stops a run in progress and saves. The precacher can't be used afterwards. */
     stop() {
         this.cancel();
-        this.flush();
+        this.saved.close();
         clearTimeout(this.notifyTimer);
         this.notifyTimer = undefined;
         this.listeners.clear();
-    }
-
-    private scheduleSave() {
-        this.dirty = true;
-        if (this.saveTimer || !this.loadDone) return;
-        this.saveTimer = setTimeout(() => this.flush(), SAVE_DELAY_MS);
     }
 
     /** Tells listeners now (and drops a pending throttled update) */

@@ -14,8 +14,6 @@ import { favoriteUrls, precacheUrl } from "./previews";
 import type { GifItem } from "./state";
 import { runtime } from "./state";
 
-const { AlertActionButton, AlertModal, Button } = Design;
-
 /** Re-renders when precaching progresses */
 export function usePrecacheUpdates() {
     const [, setTick] = useState(0);
@@ -36,6 +34,8 @@ export function toast(text: string) {
 /** Starts or stops precaching `items` */
 export function PrecacheButton({ label, items }: { label: string; items: GifItem[]; }) {
     usePrecacheUpdates();
+    // Read on render: Discord's design module isn't loaded when the script is evaluated (lazy.ts)
+    const { Button } = Design;
     const { precache } = runtime;
     if (!precache || !items.length) return null;
 
@@ -65,6 +65,7 @@ export function PrecacheButton({ label, items }: { label: string; items: GifItem
 }
 
 export function openConfirmAlert(options: { title: string; body: string; confirmText: string; destructive?: boolean; onConfirm(): void; }) {
+    const { AlertActionButton, AlertModal } = Design;
     AlertActionCreators.openAlert("gifs-plus-confirm", (
         <AlertModal
             title={options.title}

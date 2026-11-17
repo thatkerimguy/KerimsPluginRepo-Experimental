@@ -5,6 +5,13 @@ import { isValidElement } from "react";
  * Returns the new tree and whether a node was replaced. Elements on the path
  * are copied, the rest is shared.
  */
+/** Whether a node matching `pred` is anywhere in a React element tree */
+export function treeHas(node: any, pred: (n: any) => boolean): boolean {
+    if (pred(node)) return true;
+    if (Array.isArray(node)) return node.some(n => treeHas(n, pred));
+    return isValidElement(node) && (node.props as any)?.children != null && treeHas((node.props as any).children, pred);
+}
+
 export function replaceInTree(node: any, pred: (n: any) => boolean, replace: (n: any) => any): [any, boolean] {
     if (pred(node)) return [replace(node), true];
     if (Array.isArray(node)) {

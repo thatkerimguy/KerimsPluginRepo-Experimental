@@ -48,7 +48,7 @@ function savedList(key: string): UrlListStore {
 
 export default definePlugin({
     name: PLUGIN_NAME,
-    description: "A better GIF picker: one-by-one loading with low resolution previews, unloading off-screen GIFs, precaching and exporting / importing favourites. Sends the full resolution GIF.",
+    description: "A better GIF picker: one-by-one loading with low resolution previews, instant reloads of GIFs seen before, precaching and exporting / importing favourites. Sends the full resolution GIF.",
     authors: [{ name: "thatkerimguy", id: 0n }],
     settings,
     managedStyle,
@@ -144,7 +144,7 @@ export default definePlugin({
     stop() {
         seen.detach();
         failed.detach();
-        runtime.klipy?.flush();
+        runtime.klipy?.stop();
         runtime.klipy = undefined;
         runtime.precache?.stop();
         runtime.precache = undefined;

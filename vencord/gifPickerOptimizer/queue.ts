@@ -15,7 +15,7 @@
  *
  * Waiting tickets are kept in a binary heap, so starting one costs O(log n)
  * instead of a scan over every waiting tile (thousands with a big favourites
- * library and unloading off). The heap is rebuilt when the order changes
+ * library). The heap is rebuilt when the order changes
  * (`kick()`), and cancelled tickets are skipped when they come up.
  */
 

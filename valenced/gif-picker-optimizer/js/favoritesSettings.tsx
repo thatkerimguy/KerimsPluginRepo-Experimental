@@ -16,8 +16,6 @@ import { runtime } from "./state";
 import type { ImportMode } from "./transfer";
 import { exportFavorites, importFavorites } from "./transfer";
 
-const { TableRow, TableRowGroup } = Design;
-
 const plural = (n: number) => `${n} GIF${n === 1 ? "" : "s"}`;
 
 /** Copies an export to the clipboard and offers to share it */
@@ -65,6 +63,8 @@ async function importFromClipboard(mode: ImportMode) {
 }
 
 export function FavoritesSection() {
+    // Read on render: Discord's design module isn't loaded when the script is evaluated (lazy.ts)
+    const { TableRow, TableRowGroup } = Design;
     usePrecacheUpdates();
     const ready = !!runtime.precache;
     const favorites = favoriteItems();

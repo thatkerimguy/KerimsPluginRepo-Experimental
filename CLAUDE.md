@@ -5,7 +5,7 @@ GIFs+ (called GifPickerOptimizer before 1.6.0): a Discord GIF picker plugin with
 - `vencord/gifPickerOptimizer/`: Vencord user plugin for desktop and web. **This is the one being installed and tested now.**
 - `valenced/gif-picker-optimizer/`: plugin for Valenced (github.com/Valenced/valenced), a React Native mobile client mod. Replaced the old Raincord build. Not tested on a device yet.
 
-`lowres.ts`, `queue.ts`, `cache.ts` (also `ApiPreviewCache`), `klipy.ts`, `precache.ts`, `saved.ts` and `transfer.ts` are identical in `vencord/gifPickerOptimizer/` and `valenced/gif-picker-optimizer/js/`. Change both together (CI checks it).
+`lowres.ts`, `queue.ts`, `cache.ts` (also `ApiPreviewCache`), `klipy.ts`, `persist.ts`, `precache.ts`, `saved.ts` and `transfer.ts` are identical in `vencord/gifPickerOptimizer/` and `valenced/gif-picker-optimizer/js/`. Change both together (CI checks it).
 
 ## Experimental repository (testing)
 
@@ -21,6 +21,7 @@ Vencord (`vencord/gifPickerOptimizer/`):
 - `settings.tsx`: settings definition and `quality()`. `CacheSettings.tsx`: the cache stats/reset component.
 - `state.ts`: shared caches (`loaded`, and the saved `seen` / `failed` lists), the queue, `runtime` (holds the `KlipyResolver`, `Precacher` and `LowResPrefetcher` while running), `isCached` (only `loaded`) / `isPrecached` (precached or `seen`), `markLoaded` / `forgetLoaded`, `drop`/`isDropped`, the DataStore keys.
 - `saved.ts` (shared): `SavedUrlSet`, a URL LRU with timestamps that expire, loaded from and saved to a `UrlListStore` (`attach` / `detach`). Used for `seen` and `failed`.
+- `persist.ts` (shared): `Persisted<T>`, the one load / merge / debounced save / `reset` / `close` helper behind `SavedUrlSet`, `Precacher`, `KlipyResolver` and mobile `TenorPageResolver`. Never saves before the saved copy was read (a save replaces it); `reset()` and `close()` make a load still in flight stale.
 - `previews.ts`: `pickSrc`, `pickStill`, `lookupLowRes` + `lowResStarted` (the early search request), Klipy favourite lookups, `favoriteUrls` (memoized URL list for precache counts).
 - `viewport.ts`: the "visible" `ViewportWatcher` and the `useViewport` hook (on-screen state for queue priority).
 - `SequentialResult.tsx`: the tile and its `useTileLoader` hook. `components.tsx`: `Indicator`, `LoadOverlay`, `StillTile`. `stillFrames.ts`: frame capture and its LRU.
@@ -126,6 +127,16 @@ Discord's "add favourite" action stores the item's `src`. Sending uses `item.url
 A preview is only used if it's the same media type as the original (video stays video, image stays image), because H renders based on `format`.
 
 ## Verified vs unverified
+
+**Changed on 2026-11-17 (code review fixes; not tried in Discord or on a device):**
+- Toggling still favourites while a tile was queued left it waiting forever (the still effect dropped the ticket the queue effect had just made). Fixed in both builds: the still effect does nothing while `queued`.
+- Mobile tiles without a matching `Image` in Discord's tree (`treeHas`) now pass `enabled: false` to `useTileLoader`: no ticket while it's missing, queued again when it appears. Before, the ticket was dropped for good on the first such render.
+- Mobile still favourites use the Tenor media URL (`tenorMediaFor`), so Tenor favourites (shown as page URLs) get PNG stills.
+- Mobile `Design` components are read inside components, never at module level. The old module-level destructuring didn't actually break pre-init (the build inlines it at each use site, checked), but it relied on that.
+- Desktop "Reset cache" with the plugin off deletes the saved seen / failed / precached / Klipy DataStore keys.
+- `applyImport` checks duplicates with a Set of unsigned keys: 3000 into 3000 went from 6.1 s to 9 ms (same results as `findKey` on 600 random cases).
+- `persist.ts` replaces four copies of the save logic. `KlipyResolver.stop()` / `TenorPageResolver.stop()` close saving on plugin stop (`flush()` only saves). `lowres.ts`: `toMediaProxy` / `setProxySize` shared by `rewriteUrl` and `stillUrl` (2208 old vs new outputs identical).
+- Checks: mobile `valenced-plugin build`, `tsc -b` (catches a planted error) and `preinit-check.cjs` with the template (its git dependencies cloned by hand: bun can't fetch them through the API proxy here), scratch persistence tests with fake timers for all four classes.
 
 **Changed on 2026-11-17 (desktop loading indicator animations; experimental only, not tried in Discord):**
 - `Indicator` (components.tsx) is CSS shapes now, no SVG ring. queued: a 10 px dot that breathes. loading: a spinner that grows out of the dot (`vc-gpo-dot-to-spinner`). Progress known: the ring flattens into a 44 px line that then fills (`vc-gpo-spinner-to-line`), % below. Precached / seen tiles (no indicator before): state `cached`, a breathing circle that morphs into a square and back (2.4 s), fading in after 150 ms so instant cache hits don't flash.

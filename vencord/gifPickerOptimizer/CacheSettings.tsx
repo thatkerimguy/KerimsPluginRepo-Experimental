@@ -11,7 +11,7 @@ import { Paragraph } from "@components/Paragraph";
 import { useEffect, useState } from "@webpack/common";
 
 import { formatBytes } from "./cache";
-import { apiPreviews, cl, failed, KLIPY_STORE_KEY, loaded, runtime, seen } from "./state";
+import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, PRECACHE_STORE_KEY, runtime, seen, SEEN_STORE_KEY } from "./state";
 import { FRAME_BUDGET_BYTES, frames } from "./stillFrames";
 
 function cacheStats() {
@@ -37,9 +37,15 @@ function resetCaches() {
     failed.clear();
     apiPreviews.clear();
     frames.clear();
-    runtime.precache?.clear();
-    if (runtime.klipy) runtime.klipy.clear();
-    else void DataStore.del(KLIPY_STORE_KEY);
+    const { klipy, precache } = runtime;
+    if (klipy && precache) {
+        // Running: each clear also saves the empty list (seen and failed did above)
+        klipy.clear();
+        precache.clear();
+    } else {
+        // Stopped: nothing is attached to the saved lists, so delete them directly
+        for (const key of [KLIPY_STORE_KEY, PRECACHE_STORE_KEY, SEEN_STORE_KEY, FAILED_STORE_KEY]) void DataStore.del(key);
+    }
 }
 
 export function CacheSettings() {

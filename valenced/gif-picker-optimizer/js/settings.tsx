@@ -14,8 +14,6 @@ import type { Quality } from "./lowres";
 import type { Settings } from "./settingsStore";
 import { cacheControl, DefaultSettings } from "./settingsStore";
 
-const { Stack, TableRadioGroup, TableRadioRow, TableRow, TableRowGroup, TableSwitchRow } = Design;
-
 const qualities: { value: Quality; label: string; subLabel: string; }[] = [
     { value: "xs", label: "XS", subLabel: "Smallest previews (blurry on most phones). One extra request per search." },
     { value: "s", label: "S", subLabel: "Small previews, what Discord mobile shows for Klipy. Recommended." },
@@ -35,6 +33,8 @@ type Props = ComponentProps<PluginSettingsComponent<{ jsonStorage: Settings; }>>
 
 /** Cache stats (refreshed every 2 seconds while open) and a reset button */
 function CacheSection() {
+    // Read on render: Discord's design module isn't loaded when the script is evaluated (lazy.ts)
+    const { TableRow, TableRowGroup } = Design;
     const [, setTick] = useState(0);
     useEffect(() => {
         const t = setInterval(() => setTick(n => n + 1), 2000);
@@ -64,6 +64,7 @@ function CacheSection() {
 }
 
 export default function SettingsComponent({ api: { jsonStorage: storage } }: Props) {
+    const { Stack, TableRadioGroup, TableRadioRow, TableRowGroup, TableSwitchRow } = Design;
     const s: Settings = { ...DefaultSettings, ...storage.use() };
     const update = (patch: Partial<Settings>) => storage.set(patch);
 

@@ -1,4 +1,4 @@
-# The Vencord and Valenced builds share cache.ts, klipy.ts, lowres.ts, precache.ts, queue.ts, saved.ts and transfer.ts.
+# The Vencord and Valenced builds share cache.ts, klipy.ts, lowres.ts, persist.ts, precache.ts, queue.ts, saved.ts and transfer.ts.
 # They're copies (each build needs its own folder), so this fails when they differ.
 
 name: Shared files in sync
@@ -21,7 +21,7 @@ jobs:
       - name: Compare the shared files
         run: |
           status=0
-          for f in cache.ts klipy.ts lowres.ts precache.ts queue.ts saved.ts transfer.ts; do
+          for f in cache.ts klipy.ts lowres.ts persist.ts precache.ts queue.ts saved.ts transfer.ts; do
             if ! diff -u "vencord/gifPickerOptimizer/$f" "valenced/gif-picker-optimizer/js/$f"; then
               echo "::error file=valenced/gif-picker-optimizer/js/$f::$f differs between the Vencord and Valenced builds. Copy the change to both."
               status=1

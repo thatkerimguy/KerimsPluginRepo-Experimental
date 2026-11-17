@@ -9,6 +9,7 @@
 import { LruCache } from "./cache";
 import { wait } from "./klipy";
 import { isTenorMediaUrl, normalizeUrl } from "./lowres";
+import { Persisted } from "./persist";
 import { runtime } from "./state";
 
 const MAX_ENTRIES = 5000;
@@ -16,7 +17,6 @@ const MAX_FAILED_ENTRIES = 500;
 const REQUEST_TIMEOUT_MS = 8000;
 /** A failed lookup is tried again after this long */
 const RETRY_AFTER_MS = 5 * 60_000;
-const SAVE_DELAY_MS = 2000;
 
 interface TenorStore {
     load(): Promise<Record<string, string> | undefined>;
@@ -31,28 +31,20 @@ export class TenorPageResolver {
     private pending = new Map<string, Promise<void>>();
     /** page URL -> when its lookup last failed (network error, timeout or error response). Not saved. */
     private failedAt = new LruCache<string, number>(MAX_FAILED_ENTRIES);
-    private saveTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Saving replaces the saved file, so it waits until the file was read */
-    private loadDone = false;
-    private dirty = false;
-    /** Bumped by `clear()`, so a load that finishes afterwards doesn't bring old entries back */
-    private generation = 0;
+    private saved: Persisted<Record<string, string>>;
 
-    constructor(private store?: TenorStore) {
-        if (!store) {
-            this.loadDone = true;
-            return;
-        }
-        const { generation } = this;
-        store.load().then(entries => {
-            if (generation !== this.generation) return;
-            for (const [k, v] of Object.entries(entries ?? {})) {
-                if (typeof v === "string" && !this.cache.has(k)) this.cache.set(k, v);
-            }
-            this.version++;
-        }, () => { }).finally(() => {
-            this.loadDone = true;
-            if (this.dirty) this.scheduleSave();
+    constructor(store?: TenorStore) {
+        this.saved = new Persisted({
+            load: () => store?.load(),
+            save: entries => store?.save(entries),
+            apply: entries => {
+                if (typeof entries !== "object") return;
+                for (const [k, v] of Object.entries(entries)) {
+                    if (typeof v === "string" && !this.cache.has(k)) this.cache.set(k, v);
+                }
+                this.version++;
+            },
+            snapshot: () => Object.fromEntries(this.cache.entries()),
         });
     }
 
@@ -92,7 +84,7 @@ export class TenorPageResolver {
             const media = normalizeUrl(res.url ?? "");
             this.cache.set(pageUrl, isTenorMediaUrl(media) ? media : "");
             this.version++;
-            this.scheduleSave();
+            this.saved.changed();
         } catch (e) {
             this.failedAt.set(pageUrl, Date.now());
             runtime.logger?.warn?.("Couldn't resolve Tenor favourite", e);
@@ -105,31 +97,19 @@ export class TenorPageResolver {
 
     /** Forgets every resolved page, also the saved ones */
     clear() {
-        this.generation++;
-        this.loadDone = true;
         this.cache.clear();
         this.failedAt.clear();
         this.version++;
-        this.dirty = true;
-        this.flush();
+        this.saved.reset();
     }
 
-    /** Saves anything pending right away (call when the plugin stops) */
+    /** Saves anything pending right away */
     flush() {
-        if (this.saveTimer) clearTimeout(this.saveTimer);
-        this.saveTimer = undefined;
-        if (!this.store || !this.loadDone || !this.dirty) return;
-        this.dirty = false;
-        const out: Record<string, string> = {};
-        for (const [k, v] of this.cache.entries()) out[k] = v;
-        try {
-            this.store.save(out);
-        } catch { }
+        this.saved.flush();
     }
 
-    private scheduleSave() {
-        this.dirty = true;
-        if (!this.store || this.saveTimer || !this.loadDone) return;
-        this.saveTimer = setTimeout(() => this.flush(), SAVE_DELAY_MS);
+    /** Saves anything pending and stops saving (call when the plugin stops) */
+    stop() {
+        this.saved.close();
     }
 }

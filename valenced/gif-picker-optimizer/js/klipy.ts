@@ -17,6 +17,7 @@
 
 import { LruCache } from "./cache";
 import { klipyPageQuery, normalizeUrl, pageKey } from "./lowres";
+import { Persisted } from "./persist";
 
 export interface KlipySearchResult {
     url?: string;
@@ -36,7 +37,6 @@ const MAX_ENTRIES = 5000;
 const MAX_EXTRA_ENTRIES = 500;
 const SEARCH_LIMIT = 50;
 const SPACING_MS = 300;
-const SAVE_DELAY_MS = 2000;
 /** Don't wait longer than this for the saved cache, or for one search */
 const LOAD_TIMEOUT_MS = 2000;
 const SEARCH_TIMEOUT_MS = 8000;
@@ -55,32 +55,25 @@ export class KlipyResolver {
     private extra = new LruCache<string, string>(MAX_EXTRA_ENTRIES);
     private pending = new Map<string, Promise<string | null>>();
     private chain: Promise<unknown> = Promise.resolve();
-    private saveTimer: ReturnType<typeof setTimeout> | undefined;
-    private loaded: Promise<void>;
-    /** Whether the saved cache finished loading (saving replaces it, so not before) */
-    private loadDone = false;
+    private saved: Persisted<Record<string, string>>;
     /** media_format -> searches that failed in a row; formats that worked are deleted */
     private formatFailures = new Map<string, number>();
     private workingFormats = new Set<string>();
-    /** Bumped by `clear()`, so a load that finishes afterwards doesn't bring old entries back */
-    private generation = 0;
 
     constructor(private opts: KlipyResolverOptions) {
-        this.loaded = (async () => {
-            const { generation } = this;
-            try {
-                const entries = await opts.load?.();
-                if (generation !== this.generation) return;
-                for (const [k, v] of Object.entries(entries ?? {})) {
+        this.saved = new Persisted({
+            load: () => opts.load?.(),
+            save: entries => opts.save?.(entries),
+            apply: entries => {
+                if (typeof entries !== "object") return;
+                for (const [k, v] of Object.entries(entries)) {
                     if (typeof v === "string" && !this.cache.has(k)) this.cache.set(k, v);
                 }
                 this.version++;
-            } catch (e) {
-                opts.onError?.(e);
-            } finally {
-                this.loadDone = true;
-            }
-        })();
+            },
+            snapshot: () => this.entries(),
+            onError: e => opts.onError?.(e),
+        });
     }
 
     /** Whether searches with `format` are worth making (it isn't rejected by the API) */
@@ -124,7 +117,7 @@ export class KlipyResolver {
         if (existing) return existing;
 
         const run = this.chain.then(async () => {
-            await Promise.race([this.loaded, wait(LOAD_TIMEOUT_MS)]);
+            await Promise.race([this.saved.ready, wait(LOAD_TIMEOUT_MS)]);
             for (const format of formats) {
                 const cached = this.lookup(this.key(format, pageUrl));
                 if (cached) return cached;
@@ -178,7 +171,7 @@ export class KlipyResolver {
         }
         this.cache.set(this.key(format, pageUrl), hit ?? "");
         this.version++;
-        this.scheduleSave();
+        this.saved.changed();
         return hit;
     }
 
@@ -190,25 +183,8 @@ export class KlipyResolver {
         if (other === undefined) return undefined;
         this.extra.delete(key);
         this.cache.set(key, other);
-        this.scheduleSave();
+        this.saved.changed();
         return other;
-    }
-
-    private scheduleSave() {
-        if (!this.opts.save || this.saveTimer) return;
-        this.saveTimer = setTimeout(() => {
-            this.saveTimer = undefined;
-            // Saving replaces the saved cache: wait until it's loaded, or its entries would be lost
-            if (!this.loadDone) {
-                this.loaded.then(() => this.scheduleSave());
-                return;
-            }
-            try {
-                this.opts.save!(this.entries());
-            } catch (e) {
-                this.opts.onError?.(e);
-            }
-        }, SAVE_DELAY_MS);
     }
 
     private entries() {
@@ -228,32 +204,22 @@ export class KlipyResolver {
 
     /** Forgets every lookup, also the saved ones */
     clear() {
-        this.generation++;
-        this.loadDone = true;
-        if (this.saveTimer) clearTimeout(this.saveTimer);
-        this.saveTimer = undefined;
         this.cache.clear();
         this.extra.clear();
         this.formatFailures.clear();
         this.workingFormats.clear();
         this.version++;
-        try {
-            this.opts.save?.({});
-        } catch (e) {
-            this.opts.onError?.(e);
-        }
+        this.saved.reset();
     }
 
-    /** Saves anything pending right away (call when the plugin stops) */
+    /** Saves anything pending right away */
     flush() {
-        if (!this.saveTimer || !this.loadDone) return;
-        clearTimeout(this.saveTimer);
-        this.saveTimer = undefined;
-        try {
-            this.opts.save?.(this.entries());
-        } catch (e) {
-            this.opts.onError?.(e);
-        }
+        this.saved.flush();
+    }
+
+    /** Saves anything pending and stops saving (call when the plugin stops) */
+    stop() {
+        this.saved.close();
     }
 }
 

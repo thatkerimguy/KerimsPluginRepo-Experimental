@@ -132,6 +132,9 @@ function useTileLoader(opts: LoaderOptions) {
     useEffect(() => {
         if (stillRef.current === still) return;
         stillRef.current = still;
+        // Still waiting: the queue effect above already re-ran for the new setting and
+        // queued a fresh ticket. Dropping it here would leave the tile waiting forever.
+        if (phase === "queued") return;
         drop(ticketRef.current);
         setChosen(null);
         setPhase("queued");

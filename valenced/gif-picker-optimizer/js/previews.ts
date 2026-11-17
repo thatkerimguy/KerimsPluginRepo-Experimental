@@ -152,14 +152,13 @@ export function pickSrc(item: GifItem, still = false): string {
     const original = normalizeUrl(item.src);
     try {
         const q = getSettings().quality;
+        // Tenor favourite shown as its page URL: work from its media URL (stills too)
+        const tenorMedia = tenorMediaFor(item, original);
         if (still) {
-            const frame = stillUrl(original, q, item);
+            const frame = stillUrl(tenorMedia || original, q, item);
             if (frame && !failed.has(frame)) return frame;
         }
         if (q === "original") return original;
-
-        // Tenor favourite shown as its page URL: work from its media URL
-        const tenorMedia = tenorMediaFor(item, original);
 
         const formats = klipyFormats(item);
         const low = apiPreviews.get(q, item)
