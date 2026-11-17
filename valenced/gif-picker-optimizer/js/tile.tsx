@@ -95,7 +95,9 @@ export function GifTile({ props, render }: { props: ItemProps; render: (p: ItemP
     return replaceAt<ImageElement>(tree, imagePath, img => {
         const imgProps = img.props;
 
-        // One Indicator at the same place in the frame from queued to loaded, so it animates between states
+        // One Indicator at the same place in the frame from queued to loaded, so it animates between states.
+        // It's drawn under the image, on the frame's background: the image covers it natively the moment
+        // it's drawn, instead of the spinner staying until onLoad reaches JS and the tile re-renders.
         const indicatorState = !showProgress ? null
             : gaveUp ? "failed"
             : phase === "done" ? null
@@ -108,8 +110,8 @@ export function GifTile({ props, render }: { props: ItemProps; render: (p: ItemP
         if (phase === "queued" || phase === "lookingUp") {
             return (
                 <View style={[imgProps.style, styles().frame]}>
-                    {null}
                     {indicator}
+                    {null}
                 </View>
             );
         }
@@ -142,8 +144,8 @@ export function GifTile({ props, render }: { props: ItemProps; render: (p: ItemP
 
         return (
             <View style={[imgProps.style, styles().frame]}>
-                {image}
                 {indicator}
+                {image}
             </View>
         );
     }) as ReactNode;
@@ -153,7 +155,9 @@ const styles = lazy(() => StyleSheet.create({
     frame: {
         overflow: "hidden",
     },
+    /** The image covers the frame. Transparent until drawn, so the indicator under it shows (the frame has Discord's background). */
     fill: {
         ...StyleSheet.absoluteFillObject,
+        backgroundColor: "transparent",
     },
 }));

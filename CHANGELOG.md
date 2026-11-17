@@ -23,6 +23,10 @@ What's new since the last stable release (1.5.1), for the release notes:
 - Precaching was removed (it rarely helped; GIFs seen before already load first from cache).
 - Many fixes from code reviews: tiles stuck waiting, Tenor still favourites on mobile, reset cache with the plugin off, much faster imports, and saving that batches writes and saves when Discord closes.
 
+**Tested by the user on 2026-11-17 (1.7.0, desktop and mobile):** everything works. One issue on mobile: the spinner sometimes stays for a moment after the GIF has appeared.
+
+**Fixed on 2026-11-17 (mobile spinner lingering; not tried on a device):** the GIF is drawn natively as soon as it's decoded, but the indicator only went away once `onLoad` crossed to JS and the tile re-rendered, which lags while the JS thread renders other tiles. The indicator is now drawn under the image, on the frame's background (Discord's `BORDER_SUBTLE`), and the image is transparent until it's drawn, so the image covers the spinner natively the moment it appears. The indicator is still the frame's first child in every phase, so it keeps animating between states.
+
 **Fixed on 2026-11-17 (desktop settings, reported by the user):** the Patches and Cache summary rows sat above the arrow. Vencord's `ExpandableSection` header is a flex row without vertical centring; `styles.css` centres it inside the plugin's settings sections (measured in a mock: text and arrow centres now match, 2 px off before).
 
 **Changed on 2026-11-17 (1.7.0: easier to read and maintain; no behaviour change, not tried in Discord or on a device):**
