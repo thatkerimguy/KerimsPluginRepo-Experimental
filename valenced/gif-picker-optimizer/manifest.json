@@ -5,7 +5,7 @@
 	"description": "Various Tweaks to the Discord's Gif Picker",
 	"author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
 	"icon": "GifIcon",
-	"version": "1.7.0",
+	"version": "1.7.1",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
