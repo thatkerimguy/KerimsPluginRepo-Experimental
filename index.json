@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "KerimsPluginRepo Experimental",
+  "description": "Test builds, may be broken. Use KerimsPluginRepo for the stable plugins. Kerim's Valenced plugins. GIFs+: a faster GIF picker, plus precaching and exporting / importing favourites.",
+  "plugins": {
+    "thatkerimguy.gif-picker-optimizer-experimental": {
+      "name": "GIFs+ Experimental",
+      "description": "Test build, may be broken. Faster GIF picker: loads GIFs one by one with low resolution previews and remembers which ones loaded, also across restarts. Precaches your favourites and exports / imports them between accounts.",
+      "author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
+      "icon": "GifIcon",
+      "channels": {
+        "latest": "1.6.0.1"
+      },
+      "versions": {
+        "1.6.0.1": {
+          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.1.zip",
+          "sha256": "fbd13c0780da7992f2f54f07bad6a6ae71ccaa7b1b31f1c1c3355ee334470bb0",
+          "size": 17830,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    }
+  }
+}
