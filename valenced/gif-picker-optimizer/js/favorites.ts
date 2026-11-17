@@ -3,7 +3,7 @@
  */
 
 import { runtime } from "./state";
-import { createFavoritesBackend } from "./transfer";
+import { createFavoritesBackend } from "./favoritesBackend";
 
 export const favoritesBackend = createFavoritesBackend(
     () => runtime.frecency,

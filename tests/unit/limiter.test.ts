@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { Limiter } from "../../vencord/gifPickerOptimizer/klipy.ts";
+import { Limiter } from "../../vencord/gifPickerOptimizer/async.ts";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

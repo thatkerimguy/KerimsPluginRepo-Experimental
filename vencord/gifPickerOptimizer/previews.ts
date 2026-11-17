@@ -8,8 +8,9 @@
 import { GIFPickerViewStore, LocaleStore, RestAPI } from "@webpack/common";
 
 import { patchWorks } from "./diagnostics";
-import { LowResPages } from "./klipy";
-import { isKlipyUrl, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl } from "./lowres";
+import { klipyFavoriteFormats } from "./klipyLookups";
+import { LowResPages } from "./lowResPages";
+import { isKlipyUrl, isVideoUrl, normalizeUrl, rewriteUrl, stillUrl } from "./lowres";
 import { quality, settings } from "./settings";
 import { apiPreviews, failed, logger, queue, runtime } from "./state";
 import type { GifItem } from "./types";

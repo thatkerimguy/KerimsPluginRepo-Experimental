@@ -22,13 +22,13 @@ import { LocaleStore, RestAPI } from "@webpack/common";
 import { clearPatches, expectPatch } from "./diagnostics";
 import { featured, mountCategories, needsCategories } from "./favoritesOnly";
 import { FavoritesSettings } from "./FavoritesSettings";
-import { KlipyResolver } from "./klipy";
+import { KlipyResolver } from "./klipyLookups";
 import { patches } from "./patches";
 import { createLowResPages, lowResStarted } from "./previews";
 import type { UrlListStore } from "./saved";
 import { SequentialResult } from "./SequentialResult";
 import { applyQueueSettings, onConnectionChange, settings } from "./settings";
-import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, OLD_PRECACHE_STORE_KEY, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
+import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loadedThisSession, logger, OLD_PLUGIN_NAME, OLD_PRECACHE_STORE_KEY, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
 import { frames } from "./stillFrames";
 import managedStyle from "./styles.css?managed";
 import type { GifItem } from "./types";
@@ -78,7 +78,7 @@ export default definePlugin({
         expectPatch("results", "GIF tiles (one by one, previews)", "open the GIF picker");
         expectPatch("searchActions", "Early low resolution requests", "search for GIFs or open Trending");
         expectPatch("categories", "Main page categories (Favourites only)", "open the GIF picker's main page");
-        loaded.resize(settings.store.cacheSize);
+        loadedThisSession.resize(settings.store.cacheSize);
         seen.attach(savedList(SEEN_STORE_KEY));
         failed.attach(savedList(FAILED_STORE_KEY));
         runtime.klipy = new KlipyResolver({
@@ -116,7 +116,7 @@ export default definePlugin({
         runtime.lowRes = undefined;
         disconnectWatchers();
         clearPatches();
-        loaded.clear();
+        loadedThisSession.clear();
         // Like the Valenced build: the patches stay applied until Discord reloads, so drop what was cached
         apiPreviews.clear();
         frames.clear();

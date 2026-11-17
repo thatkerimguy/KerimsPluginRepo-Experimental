@@ -12,14 +12,14 @@ import { useEffect, useState } from "@webpack/common";
 
 import { describePatch, PATCHES_NOTE, patchStatuses, summarizePatches } from "./diagnostics";
 import { type CacheNumbers, cacheStatRows, cacheSummary, type StatRow, TEXT } from "./settingsText";
-import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, runtime, seen, SEEN_STORE_KEY } from "./state";
+import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loadedThisSession, runtime, seen, SEEN_STORE_KEY } from "./state";
 import { FRAME_BUDGET_BYTES, frames } from "./stillFrames";
 
 function cacheNumbers(): CacheNumbers {
     const klipy = runtime.klipy?.stats() ?? { saved: 0, recent: 0, bytes: 0 };
     return {
-        loaded: loaded.size,
-        loadedMax: loaded.max,
+        loaded: loadedThisSession.size,
+        loadedMax: loadedThisSession.max,
         seen: seen.size,
         seenMax: seen.max,
         klipySaved: klipy.saved,
@@ -27,13 +27,13 @@ function cacheNumbers(): CacheNumbers {
         searchPreviews: apiPreviews.size,
         failed: failed.size,
         frames: { count: frames.size, bytes: frames.weight, budget: FRAME_BUDGET_BYTES },
-        memoryBytes: loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight,
+        memoryBytes: loadedThisSession.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight,
     };
 }
 
 /** Clears every cache, also the saved lists and Klipy lookups. Tiles look things up again. */
 function resetCaches() {
-    loaded.clear();
+    loadedThisSession.clear();
     seen.clear();
     failed.clear();
     apiPreviews.clear();

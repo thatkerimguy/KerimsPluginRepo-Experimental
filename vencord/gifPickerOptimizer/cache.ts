@@ -7,8 +7,6 @@
  * queue and is served from the HTTP / native image cache instead of downloading again.
  */
 
-import { normalizeUrl } from "./lowres";
-
 /**
  * Least recently used map. `get` and `set` both count as a use.
  *
@@ -141,50 +139,5 @@ export class LoadedCache extends LruCache<string, number> {
     /** Whether `url` loaded before. Counts as a use, keeping it cached longer. */
     hit(url: string | null | undefined) {
         return url != null && this.get(url) != null;
-    }
-}
-
-/** The fields that identify a GIF in Discord's GIF API results */
-export interface GifRef {
-    id?: string;
-    url?: string;
-}
-
-/**
- * Low resolution URLs from Discord's GIF API, by quality and the GIF's id or
- * page URL. Only the current results page needs them: 1200 entries is about
- * 12 pages, since each result is stored under both keys.
- */
-export class ApiPreviewCache {
-    private cache = new LruCache<string, string>(1200);
-
-    get size() {
-        return this.cache.size;
-    }
-
-    has(quality: string, item: GifRef) {
-        return this.cache.has(`${quality}:${item.id}`) || this.cache.has(`${quality}:${item.url}`);
-    }
-
-    get(quality: string, item: GifRef) {
-        return this.cache.get(`${quality}:${item.id}`) ?? this.cache.get(`${quality}:${item.url}`);
-    }
-
-    /** Stores the results of a request made with a low resolution media_format */
-    store(quality: string, results: (GifRef & { src?: string; })[]) {
-        for (const r of results) {
-            if (!r?.src) continue;
-            const low = normalizeUrl(r.src);
-            if (r.id != null) this.cache.set(`${quality}:${r.id}`, low);
-            if (r.url != null) this.cache.set(`${quality}:${r.url}`, low);
-        }
-    }
-
-    approxBytes() {
-        return this.cache.approxBytes();
-    }
-
-    clear() {
-        this.cache.clear();
     }
 }

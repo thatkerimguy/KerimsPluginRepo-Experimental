@@ -8,7 +8,8 @@ import { classNameFactory } from "@utils/css";
 import { Logger } from "@utils/Logger";
 import type { ReactNode } from "react";
 
-import type { KlipyResolver, LowResPages } from "./klipy";
+import type { KlipyResolver } from "./klipyLookups";
+import type { LowResPages } from "./lowResPages";
 import { preconnect } from "./preconnect";
 import { createTracking } from "./tracking";
 
@@ -40,8 +41,8 @@ export const runtime: {
 export const settingsPanels: { favorites?: () => ReactNode; } = {};
 
 export const {
-    queue, loaded, seen, failed, apiPreviews,
-    isCached, markLoaded, forgetLoaded, wasSeen, drop, isDropped, tileEnv, flushSaved,
+    queue, loadedThisSession, seen, failed, apiPreviews,
+    isLoadedThisSession, isSeenBefore, markLoaded, forgetLoaded, drop, isDropped, tileEnv, flushSaved,
 } = createTracking({
     loadedSize: 1000,
     savedCaches: () => [runtime.klipy],

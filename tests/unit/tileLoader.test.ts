@@ -21,8 +21,8 @@ function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; failedBefore?
     const log: string[] = [];
     const env: TileEnv = {
         queue,
-        isCached: u => !!opts.cached?.has(u),
-        wasSeen: u => !!opts.seen?.has(u),
+        isLoadedThisSession: u => !!opts.cached?.has(u),
+        isSeenBefore: u => !!opts.seen?.has(u),
         markLoaded: u => { log.push(`loaded ${u}`); opts.cached?.add(u); },
         markFailed: u => log.push(`failed ${u}`),
         forgetLoaded: u => { log.push(`forgot ${u}`); opts.cached?.delete(u); },
@@ -106,7 +106,7 @@ test("Disabled during a lookup: restarts and loads when enabled again; the slot 
     const el = (enabled: boolean) => React.createElement(Tile, { id: "r", env, index: 0, enabled, pick: () => "low-r", lookup: () => (first ? (first = false, lookup()) : null) });
     await act(async () => { root = TR.create(el(true)); });
     await settle();
-    assert.equal(apis.r.phase, "resolving");
+    assert.equal(apis.r.phase, "lookingUp");
     await act(async () => root.update(el(false)));
     await settle();
     assert.equal(apis.r.phase, "queued");
@@ -210,7 +210,7 @@ test("a lookup frees its slot, and the tile loads the small URL once it's known"
         }),
         React.createElement(Tile, { id: "n", env, index: 1, pick: () => "low-n" }))); });
     await settle();
-    assert.equal(apis.k.phase, "resolving");
+    assert.equal(apis.k.phase, "lookingUp");
     assert.equal(apis.n.phase, "loading", "the next GIF loads while the lookup runs");
     assert.equal(apis.k.chosen, null, "no original meanwhile");
     await act(async () => resolveLookup());

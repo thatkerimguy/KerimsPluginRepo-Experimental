@@ -7,7 +7,7 @@
  */
 
 import { LruCache } from "./cache";
-import { wait } from "./klipy";
+import { wait } from "./async";
 import { isTenorMediaUrl, normalizeUrl } from "./lowres";
 import { Persisted } from "./persist";
 

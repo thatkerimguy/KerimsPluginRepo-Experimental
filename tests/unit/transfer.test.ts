@@ -3,9 +3,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { createFavoritesBackend, type FavoriteMap, protoBytes } from "../../vencord/gifPickerOptimizer/favoritesBackend.ts";
 import {
-    applyImport, buildExport, createFavoritesBackend, type FavoriteMap, formatExport, importFavorites,
-    importSummary, otherSitesWarning, parseExport, protoBytes, urlHost,
+    applyImport, buildExport, formatExport, importFavorites, importSummary, otherSitesWarning, parseExport, urlHost,
 } from "../../vencord/gifPickerOptimizer/transfer.ts";
 
 const exportOf = (gifs: unknown[]) => JSON.stringify({ format: "gifs-plus", version: 1, gifs });

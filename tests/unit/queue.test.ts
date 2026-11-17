@@ -31,7 +31,7 @@ test("visible first, then priority, then index; cancelled tickets are skipped", 
     const log: string[] = [];
     q.enqueue(ticket(log, "hidden0", 0, { visible: false }));
     q.enqueue(ticket(log, "visible5", 5));
-    q.enqueue(ticket(log, "visiblePriority9", 9, { priority: true }));
+    q.enqueue(ticket(log, "visiblePriority9", 9, { seenBefore: true }));
     const cancelled = ticket(log, "cancelled1", 1);
     q.enqueue(cancelled);
     q.cancel(cancelled);
@@ -76,7 +76,7 @@ test("cache fast lane: seen-before GIFs that load instantly may go past the limi
     const q = new LoadQueue();
     q.concurrency = 1;
     const log: string[] = [];
-    const t = Array.from({ length: 6 }, (_, i) => ticket(log, `s${i}`, i, { priority: true }));
+    const t = Array.from({ length: 6 }, (_, i) => ticket(log, `s${i}`, i, { seenBefore: true }));
     t.forEach(x => q.enqueue(x));
     await flush();
     assert.deepEqual(log, ["s0"], "cold: one at a time");
@@ -85,7 +85,7 @@ test("cache fast lane: seen-before GIFs that load instantly may go past the limi
     assert.equal(log.length, 6, "hot: the rest start together");
     // A slow one closes the lane again
     q.finish(t[1], 900);
-    const more = Array.from({ length: 3 }, (_, i) => ticket(log, `m${i}`, 10 + i, { priority: true }));
+    const more = Array.from({ length: 3 }, (_, i) => ticket(log, `m${i}`, 10 + i, { seenBefore: true }));
     for (const x of t.slice(2)) q.finish(x);
     more.forEach(x => q.enqueue(x));
     await flush();
@@ -96,7 +96,7 @@ test("the fast lane is only for seen-before GIFs", async () => {
     const q = new LoadQueue();
     q.concurrency = 1;
     const log: string[] = [];
-    const seen = ticket(log, "seen", 0, { priority: true });
+    const seen = ticket(log, "seen", 0, { seenBefore: true });
     q.enqueue(seen);
     await flush();
     q.finish(seen, 10);

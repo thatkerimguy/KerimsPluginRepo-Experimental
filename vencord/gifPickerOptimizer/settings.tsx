@@ -12,7 +12,7 @@ import { CacheSettings, PatchesSettings } from "./CacheSettings";
 import type { Quality } from "./lowres";
 import { SettingsHeader } from "./SettingsHeader";
 import { QUALITY_CHOICES, RESTORE_DEFAULTS_CONFIRM, SECTIONS, type SectionText, TEXT } from "./settingsText";
-import { cl, loaded, queue, settingsPanels } from "./state";
+import { cl, loadedThisSession, queue, settingsPanels } from "./state";
 
 /** "800", "1.2K", "3K": four digit marker labels are too wide and wrap under the slider */
 const shortNumber = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}K` : String(v));
@@ -129,7 +129,7 @@ export const settings = definePluginSettings({
         default: 1000,
         stickToMarkers: true,
         componentProps: sliderLabels,
-        onChange: (size: number) => loaded.resize(size),
+        onChange: (size: number) => loadedThisSession.resize(size),
     },
     cache: {
         type: OptionType.COMPONENT,

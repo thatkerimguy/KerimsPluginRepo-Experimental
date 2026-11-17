@@ -14,8 +14,7 @@ import { favoritesBackend } from "./favorites";
 import { openConfirmAlert, toast } from "./favoritesUi";
 import { runtime } from "./state";
 import { SECTIONS } from "./settingsText";
-import type { ImportMode } from "./transfer";
-import type { ParsedExport } from "./transfer";
+import type { ImportMode, ParsedExport } from "./transfer";
 import { exportFavorites, importFavorites, importSummary, otherSitesWarning, parseExport } from "./transfer";
 
 const plural = (n: number) => `${n} GIF${n === 1 ? "" : "s"}`;

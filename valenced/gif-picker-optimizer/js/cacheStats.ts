@@ -3,14 +3,14 @@
  */
 
 import type { CacheNumbers } from "./settingsText";
-import { apiPreviews, failed, loaded, runtime, seen } from "./state";
+import { apiPreviews, failed, loadedThisSession, runtime, seen } from "./state";
 
 export function cacheNumbers(): CacheNumbers {
     const klipy = runtime.klipy?.stats() ?? { saved: 0, recent: 0, bytes: 0 };
     const tenor = runtime.tenorPages?.stats() ?? { saved: 0, bytes: 0 };
     return {
-        loaded: loaded.size,
-        loadedMax: loaded.max,
+        loaded: loadedThisSession.size,
+        loadedMax: loadedThisSession.max,
         seen: seen.size,
         seenMax: seen.max,
         klipySaved: klipy.saved,
@@ -18,13 +18,13 @@ export function cacheNumbers(): CacheNumbers {
         tenorSaved: tenor.saved,
         searchPreviews: apiPreviews.size,
         failed: failed.size,
-        memoryBytes: loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + tenor.bytes,
+        memoryBytes: loadedThisSession.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + tenor.bytes,
     };
 }
 
 /** Clears every cache, also the saved lists and lookups. Tiles look things up again. */
 export function resetCaches() {
-    loaded.clear();
+    loadedThisSession.clear();
     seen.clear();
     failed.clear();
     apiPreviews.clear();

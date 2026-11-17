@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 
-import { KlipyResolver } from "../../vencord/gifPickerOptimizer/klipy.ts";
+import { KlipyResolver } from "../../vencord/gifPickerOptimizer/klipyLookups.ts";
 import { SavedUrlSet } from "../../vencord/gifPickerOptimizer/saved.ts";
 import { TenorPageResolver } from "../../valenced/gif-picker-optimizer/js/tenor.ts";
 

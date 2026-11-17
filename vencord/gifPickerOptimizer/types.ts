@@ -4,7 +4,7 @@
 
 import type { ComponentType, MouseEvent, ReactNode } from "react";
 
-import type { GifRef } from "./cache";
+import type { GifRef } from "./lowResPages";
 
 export interface GifItem extends GifRef {
     src: string;

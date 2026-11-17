@@ -48,7 +48,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
 
     // A tile that was resolving already showed a spinner: the loading one carries on instead of growing out of a dot
     const spinnerShown = useRef(false);
-    if (phase === "resolving") spinnerShown.current = true;
+    if (phase === "lookingUp") spinnerShown.current = true;
     else if (phase === "queued") spinnerShown.current = false;
     // Fixed at mount, so the placeholder's shimmer doesn't jump on re-render
     const [shimmerSync] = useState(shimmerInStep);
@@ -57,7 +57,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
     const contextMenu = (e: MouseEvent) => rest.onContextMenu?.(e, item);
 
     // Waiting for its turn or being looked up
-    if (phase === "queued" || phase === "resolving") {
+    if (phase === "queued" || phase === "lookingUp") {
         return (
             <div
                 ref={viewRef}
@@ -66,7 +66,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                 onClick={click}
                 onContextMenu={contextMenu}
             >
-                {showProgress && <Indicator state={seenBefore ? "cached" : phase === "resolving" ? "loading" : "queued"} />}
+                {showProgress && <Indicator state={seenBefore ? "cached" : phase === "lookingUp" ? "loading" : "queued"} />}
                 {rest.renderExtras?.(item)}
             </div>
         );

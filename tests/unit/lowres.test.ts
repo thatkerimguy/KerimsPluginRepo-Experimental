@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-    isTenorPageGif, klipyPageQuery, lowResMediaFormat, pageKey, rewriteUrl, stillUrl, tenorMediaFromSrc, unwrapProxyUrl,
+    isTenorPageGif, lowResMediaFormat, rewriteUrl, stillUrl, tenorMediaFromSrc, unwrapProxyUrl,
 } from "../../vencord/gifPickerOptimizer/lowres.ts";
+import { klipyPageQuery, pageKey } from "../../vencord/gifPickerOptimizer/klipyLookups.ts";
 
 const TENOR_GIF = "https://media.tenor.com/abcdefAAAAC/cat.gif";
 const TENOR_MP4 = "https://media.tenor.com/abcdefAAAPo/cat.mp4";

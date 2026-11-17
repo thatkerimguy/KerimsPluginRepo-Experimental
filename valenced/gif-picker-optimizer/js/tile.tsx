@@ -337,7 +337,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         const indicator = indicatorState && <Indicator state={indicatorState} progress={phase === "loading" ? progress : null} />;
 
         // Waiting for its turn or being looked up: an empty frame, no image in memory
-        if (phase === "queued" || phase === "resolving") {
+        if (phase === "queued" || phase === "lookingUp") {
             return (
                 <View style={[imgProps.style, styles().frame]}>
                     {null}

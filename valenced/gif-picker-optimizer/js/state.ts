@@ -4,12 +4,13 @@
 
 import type { DiscordModules } from "@valenced/discord/types";
 
-import type { GifRef } from "./cache";
-import type { KlipyResolver, LowResPages } from "./klipy";
+import type { GifRef } from "./lowResPages";
+import type { KlipyResolver } from "./klipyLookups";
+import type { LowResPages } from "./lowResPages";
 import type { Settings } from "./settingsStore";
 import { DefaultSettings } from "./settingsStore";
 import type { TenorPageResolver } from "./tenor";
-import type { FrecencyActions } from "./transfer";
+import type { FrecencyActions } from "./favoritesBackend";
 import { createTracking } from "./tracking";
 
 export const PLUGIN_ID = "thatkerimguy.gif-picker-optimizer";
@@ -51,8 +52,8 @@ export const runtime: {
 } = {};
 
 export const {
-    queue, loaded, seen, failed, apiPreviews,
-    isCached, markLoaded, forgetLoaded, wasSeen, drop, isDropped, tileEnv, flushSaved,
+    queue, loadedThisSession, seen, failed, apiPreviews,
+    isLoadedThisSession, isSeenBefore, markLoaded, forgetLoaded, drop, isDropped, tileEnv, flushSaved,
 } = createTracking({
     loadedSize: DefaultSettings.cacheSize,
     savedCaches: () => [runtime.klipy, runtime.tenorPages],

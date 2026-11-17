@@ -11,9 +11,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const SHARED = [
+    "async.ts",
     "cache.ts",
     "diagnostics.ts",
-    "klipy.ts",
+    "favoritesBackend.ts",
+    "klipyLookups.ts",
+    "lowResPages.ts",
     "lowres.ts",
     "persist.ts",
     "queue.ts",
@@ -22,6 +25,7 @@ export const SHARED = [
     "tileLoader.ts",
     "tracking.ts",
     "transfer.ts",
+    "tuning.ts",
 ];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");

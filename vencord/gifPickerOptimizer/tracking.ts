@@ -4,15 +4,15 @@
  * Shared between the Vencord and Valenced builds (keep both copies in sync).
  */
 
-import { ApiPreviewCache, LoadedCache } from "./cache";
+import { LoadedCache } from "./cache";
+import { ApiPreviewCache } from "./lowResPages";
 import { LoadQueue, type Ticket } from "./queue";
 import { SavedUrlSet } from "./saved";
 import type { TileEnv } from "./tileLoader";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { FAILED_MAX, FAILED_MAX_AGE_MS, SEEN_MAX, SEEN_MAX_AGE_MS } from "./tuning";
 
 export interface TrackingOptions {
-    /** How many loaded URLs `loaded` remembers at first (the cache size setting) */
+    /** How many loaded URLs `loadedThisSession` remembers at first (the cache size setting) */
     loadedSize: number;
     /** Other saved caches to save with the lists in `flushSaved` (Klipy, Tenor) */
     savedCaches(): ({ flush(): void; } | undefined)[];
@@ -24,26 +24,26 @@ export interface TrackingOptions {
 export function createTracking(o: TrackingOptions) {
     const queue = new LoadQueue();
     /** URLs that finished loading. Scrolled-back tiles with a cached URL skip the queue. */
-    const loaded = new LoadedCache(o.loadedSize);
+    const loadedThisSession = new LoadedCache(o.loadedSize);
     /**
      * GIFs that finished loading, saved across restarts. After a restart their tiles
      * go first in the queue without a spinner, since the files are probably still in
      * the HTTP / native image cache.
      */
-    const seen = new SavedUrlSet(5000, 14 * DAY_MS);
+    const seen = new SavedUrlSet(SEEN_MAX, SEEN_MAX_AGE_MS);
     /** Preview URLs that failed, saved for a week so they aren't tried again after a restart */
-    const failed = new SavedUrlSet(600, 7 * DAY_MS);
+    const failed = new SavedUrlSet(FAILED_MAX, FAILED_MAX_AGE_MS);
     /** Low resolution URLs for search and trending results, from Discord's GIF API */
     const apiPreviews = new ApiPreviewCache();
     /** Tickets that were cancelled; a lookup that finishes later must not start them */
     const dropped = new WeakSet<Ticket>();
 
     /** Whether `url` loaded recently, so its tile shows it at once without a turn in the queue */
-    const isCached = (url: string | null | undefined) => loaded.hit(url);
+    const isLoadedThisSession = (url: string | null | undefined) => loadedThisSession.hit(url);
 
     /** Remembers that `url` finished loading (this session, and saved for later ones) */
     const markLoaded = (url: string) => {
-        loaded.mark(url);
+        loadedThisSession.mark(url);
         seen.add(url);
         // It works again
         failed.delete(url);
@@ -51,7 +51,7 @@ export function createTracking(o: TrackingOptions) {
 
     /** Forgets `url` everywhere after it failed to load */
     const forgetLoaded = (url: string) => {
-        loaded.delete(url);
+        loadedThisSession.delete(url);
         seen.delete(url);
     };
 
@@ -60,7 +60,7 @@ export function createTracking(o: TrackingOptions) {
      * without a spinner, but still takes a turn: the browser (or Fresco) may have
      * evicted it from its cache since.
      */
-    const wasSeen = (url: string | null | undefined) => seen.has(url);
+    const isSeenBefore = (url: string | null | undefined) => seen.has(url);
 
     const drop = (ticket: Ticket | null) => {
         if (!ticket) return;
@@ -72,8 +72,8 @@ export function createTracking(o: TrackingOptions) {
     /** What the shared tile loader (tileLoader.ts) works with */
     const tileEnv: TileEnv = {
         queue,
-        isCached,
-        wasSeen,
+        isLoadedThisSession,
+        isSeenBefore,
         markLoaded,
         markFailed(url) {
             failed.add(url);
@@ -94,5 +94,8 @@ export function createTracking(o: TrackingOptions) {
         for (const cache of o.savedCaches()) cache?.flush();
     };
 
-    return { queue, loaded, seen, failed, apiPreviews, isCached, markLoaded, forgetLoaded, wasSeen, drop, isDropped, tileEnv, flushSaved };
+    return {
+        queue, loadedThisSession, seen, failed, apiPreviews,
+        isLoadedThisSession, isSeenBefore, markLoaded, forgetLoaded, drop, isDropped, tileEnv, flushSaved,
+    };
 }

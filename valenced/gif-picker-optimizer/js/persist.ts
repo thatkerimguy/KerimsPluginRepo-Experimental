@@ -8,6 +8,8 @@
  * read, because a save replaces it. `Persisted` does that for each of them.
  */
 
+import { SAVE_DELAY_MS } from "./tuning";
+
 export interface PersistOptions<T> {
     /** Reads the saved copy (undefined when there is none) */
     load(): Promise<T | undefined> | T | undefined;
@@ -21,13 +23,6 @@ export interface PersistOptions<T> {
     /** How long after a change to save (default 15 s) */
     delayMs?: number;
 }
-
-/**
- * Saves are batched this long: a save rewrites the whole list (thousands of
- * entries), and scrolling or lookups change it many times a second. Each
- * build also saves right away when Discord closes or goes to the background.
- */
-const SAVE_DELAY_MS = 15_000;
 
 export class Persisted<T> {
     /** Settles once the saved copy was read (or failed to) */

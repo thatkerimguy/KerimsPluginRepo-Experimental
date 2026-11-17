@@ -26,7 +26,7 @@ import { AppState } from "react-native";
 
 import { cacheNumbers, resetCaches } from "./cacheStats";
 import { clearPatches, expectPatch, patchFailed, patchWorks } from "./diagnostics";
-import { KlipyResolver } from "./klipy";
+import { KlipyResolver } from "./klipyLookups";
 import type { AnyComponent } from "./modules";
 import { pickerModules } from "./modules";
 import { CategoriesPage, DeferredPicker } from "./picker";
@@ -36,8 +36,8 @@ import SettingsComponent from "./settings";
 import type { Settings } from "./settingsStore";
 import { cacheControl, DefaultSettings, getSettings, setStorage } from "./settingsStore";
 import type { GifItem, HttpClient } from "./state";
-import type { FrecencyActions } from "./transfer";
-import { apiPreviews, applyQueueSettings, failed, flushSaved, loaded, PLUGIN_ID, runtime, seen } from "./state";
+import type { FrecencyActions } from "./favoritesBackend";
+import { apiPreviews, applyQueueSettings, failed, flushSaved, loadedThisSession, PLUGIN_ID, runtime, seen } from "./state";
 import { TenorPageResolver } from "./tenor";
 import type { ItemProps } from "./tile";
 import { OptimizedItem } from "./tile";
@@ -106,7 +106,7 @@ export default plugin<{ jsonStorage: Settings; }>({
     start({ cleanup, jsonStorage, logger }) {
         setStorage(jsonStorage);
         runtime.logger = logger;
-        loaded.resize(getSettings().cacheSize);
+        loadedThisSession.resize(getSettings().cacheSize);
         applyQueueSettings(getSettings());
         cacheControl.stats = cacheNumbers;
         cacheControl.reset = resetCaches;
@@ -163,7 +163,7 @@ export default plugin<{ jsonStorage: Settings; }>({
                 cacheControl.reset = undefined;
                 seen.detach();
                 failed.detach();
-                loaded.clear();
+                loadedThisSession.clear();
                 apiPreviews.clear();
             },
 

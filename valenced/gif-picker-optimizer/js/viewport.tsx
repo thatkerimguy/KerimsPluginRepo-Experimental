@@ -18,7 +18,7 @@ import { cloneElement, createContext, isValidElement, useCallback, useContext, u
 import { patchWorks } from "./diagnostics";
 import { lazy } from "./lazy";
 import { useSettings } from "./settingsStore";
-import { applyQueueSettings, loaded } from "./state";
+import { applyQueueSettings, loadedThisSession } from "./state";
 import { replaceInTree } from "./tree";
 
 interface ViewToken {
@@ -89,7 +89,7 @@ export function OptimizedResultsList({ props, render }: { props: ResultsListProp
     const settings = useSettings();
     const { cacheSize, sequential, concurrency } = settings;
     useEffect(() => {
-        if (loaded.max !== cacheSize) loaded.resize(cacheSize);
+        if (loadedThisSession.max !== cacheSize) loadedThisSession.resize(cacheSize);
     }, [cacheSize]);
     // Settings changed since start: once per list, not per tile
     useEffect(() => applyQueueSettings(settings), [sequential, concurrency]);

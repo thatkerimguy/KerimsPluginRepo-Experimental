@@ -6,8 +6,9 @@
 import { Stores } from "@valenced/discord/flux";
 
 import { favoritesBackend } from "./favorites";
-import { LowResPages } from "./klipy";
-import { isKlipyUrl, isTenorPageGif, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
+import { klipyFavoriteFormats } from "./klipyLookups";
+import { LowResPages } from "./lowResPages";
+import { isKlipyUrl, isTenorPageGif, isVideoUrl, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
 import { getSettings } from "./settingsStore";
 import type { GifItem } from "./state";
 import { apiPreviews, failed, isFavoriteItem, queue, runtime } from "./state";

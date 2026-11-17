@@ -2,8 +2,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ApiPreviewCache } from "../../vencord/gifPickerOptimizer/cache.ts";
-import { LowResPages } from "../../vencord/gifPickerOptimizer/klipy.ts";
+import { ApiPreviewCache, LowResPages } from "../../vencord/gifPickerOptimizer/lowResPages.ts";
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 test("early request, waiting for it, fallback request, disabled", async () => {
