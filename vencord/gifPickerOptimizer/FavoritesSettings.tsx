@@ -10,6 +10,7 @@ import { Alerts, showToast } from "@webpack/common";
 
 import { favoriteItems, favoritesBackend } from "./favorites";
 import { SettingsHeader } from "./SettingsHeader";
+import { SECTIONS } from "./settingsText";
 import { cl } from "./state";
 import { exportFavorites, importFavorites, type ImportMode, importSummary, otherSitesWarning, type ParsedExport, parseExport } from "./transfer";
 
@@ -79,8 +80,8 @@ export function FavoritesSettings() {
     return (
         <section className={cl("settings-section")}>
             <SettingsHeader
-                title="Favourites"
-                description={`${favorites.length} favourite GIF${favorites.length === 1 ? "" : "s"}. Export saves them to a file, to keep or move to another account. Merge adds a file's GIFs to yours; replace swaps yours for the file's.`}
+                title={SECTIONS.favorites.title}
+                description={`${SECTIONS.favorites.description} You have ${favorites.length} favourite GIF${favorites.length === 1 ? "" : "s"}.`}
             />
             <div className={cl("actions")}>
                 <Button size="small" variant="secondary" disabled={!favorites.length} onClick={exportToFile}>Export favourites</Button>

@@ -13,6 +13,7 @@ import { Share } from "react-native";
 import { favoritesBackend } from "./favorites";
 import { openConfirmAlert, toast } from "./favoritesUi";
 import { runtime } from "./state";
+import { SECTIONS } from "./settingsText";
 import type { ImportMode } from "./transfer";
 import type { ParsedExport } from "./transfer";
 import { exportFavorites, importFavorites, importSummary, otherSitesWarning, parseExport } from "./transfer";
@@ -82,10 +83,7 @@ export function FavoritesSection() {
     const count = Object.keys(favoritesBackend.read() ?? {}).length;
 
     return (
-        <TableRowGroup
-            title="Favourites"
-            description="Move your favourites to another account: export on one, then import the copied text on the other."
-        >
+        <TableRowGroup title={SECTIONS.favorites.title} description={SECTIONS.favorites.description}>
             <TableRow
                 label="Export favourites"
                 subLabel={ready ? `Copies all ${plural(count)} to the clipboard` : "Enable the plugin, then open the GIF picker once"}

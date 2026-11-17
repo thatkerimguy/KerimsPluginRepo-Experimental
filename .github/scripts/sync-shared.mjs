@@ -18,6 +18,7 @@ export const SHARED = [
     "persist.ts",
     "queue.ts",
     "saved.ts",
+    "settingsText.ts",
     "tileLoader.ts",
     "tracking.ts",
     "transfer.ts",

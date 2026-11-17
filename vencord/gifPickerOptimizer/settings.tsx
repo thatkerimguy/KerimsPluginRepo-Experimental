@@ -3,12 +3,16 @@
  */
 
 import { definePluginSettings } from "@api/Settings";
+import { Button } from "@components/Button";
+import { Paragraph } from "@components/Paragraph";
 import { makeRange, OptionType } from "@utils/types";
+import { Alerts } from "@webpack/common";
 
 import { CacheSettings, PatchesSettings } from "./CacheSettings";
 import type { Quality } from "./lowres";
 import { SettingsHeader } from "./SettingsHeader";
-import { loaded, queue, settingsPanels } from "./state";
+import { QUALITY_CHOICES, RESTORE_DEFAULTS_CONFIRM, SECTIONS, type SectionText, TEXT } from "./settingsText";
+import { cl, loaded, queue, settingsPanels } from "./state";
 
 /** "800", "1.2K", "3K": four digit marker labels are too wide and wrap under the slider */
 const shortNumber = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}K` : String(v));
@@ -16,7 +20,7 @@ const shortNumber = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}K` : S
 const sliderLabels = { onMarkerRender: shortNumber, onValueRender: (v: number) => String(Math.round(v)) };
 
 /** A section heading in the settings list */
-const header = (title: string, description?: string, first?: boolean) => ({
+const header = ({ title, description }: SectionText, first?: boolean) => ({
     type: OptionType.COMPONENT as const,
     component: () => <SettingsHeader title={title} description={description} first={first} />,
 });
@@ -25,64 +29,66 @@ const header = (title: string, description?: string, first?: boolean) => ({
 const notSequential = () => !isSequential();
 
 export const settings = definePluginSettings({
-    previewsHeader: header("Previews", "Smaller versions of the GIFs in the picker. The GIF you send is always the full size one.", true),
+    previewsHeader: header(SECTIONS.previews, true),
     quality: {
         type: OptionType.SELECT,
-        displayName: "Preview size",
-        description: "S suits most screens. Auto picks S, or SD on high density screens.",
-        options: [
-            { label: "XS: smallest and fastest", value: "xs" },
-            { label: "S: small (recommended)", value: "s", default: true },
-            { label: "SD: medium", value: "sd" },
-            { label: "Auto: S, or SD on high density screens", value: "auto" },
-            { label: "Original: no previews, every GIF at full size", value: "original" },
-        ],
+        displayName: TEXT.quality.title,
+        // Read on each render, so it says what Auto picks on this screen
+        get description() {
+            return isAutoQuality() ? `${TEXT.quality.description} Auto is using ${quality().toUpperCase()} on this screen.` : TEXT.quality.description;
+        },
+        options: QUALITY_CHOICES.map(c => ({ label: `${c.label}: ${c.short}`, value: c.value, default: c.value === "s" })),
     },
     klipyLookup: {
         type: OptionType.BOOLEAN,
-        displayName: "Small Klipy previews",
-        description: "Klipy is Discord's GIF source. Its small versions need one extra request per search page.",
+        displayName: TEXT.klipyLookup.title,
+        description: TEXT.klipyLookup.description,
         default: true,
     },
     stillFavorites: {
         type: OptionType.BOOLEAN,
-        displayName: "Still favourites",
-        description: "Show favourites as still images. Sent GIFs still animate.",
+        displayName: TEXT.stillFavorites.title,
+        description: TEXT.stillFavorites.description,
         default: false,
     },
 
-    loadingHeader: header("Loading"),
+    loadingHeader: header(SECTIONS.loading),
     sequential: {
         type: OptionType.BOOLEAN,
-        displayName: "Load one by one",
-        description: "Load GIFs in reading order, a few at a time, instead of all at once.",
+        displayName: TEXT.sequential.title,
+        description: TEXT.sequential.description,
         default: true,
         onChange: () => applyQueueSettings(),
     },
     concurrency: {
         // A dropdown, not a slider: an "Auto" marker label is too wide and wraps
         type: OptionType.SELECT,
-        displayName: "GIFs at the same time",
-        description: "Auto uses 2 on slow connections and up to 6 on fast ones.",
+        displayName: TEXT.concurrency.title,
+        // Read on each render, so it says what Auto picks on this connection
+        get description() {
+            return isAutoConcurrency()
+                ? `${TEXT.concurrency.description} Auto is using ${autoConcurrency()} on this connection (2 on slow ones, up to 6 on fast ones).`
+                : TEXT.concurrency.description;
+        },
         options: [
-            { label: "Auto", value: 0, default: true },
-            ...makeRange(1, 6, 1).map(n => ({ label: n === 1 ? "1 (strictly one by one)" : String(n), value: n })),
+            { label: "Auto: from your connection's speed", value: 0, default: true },
+            ...makeRange(1, 6, 1).map(n => ({ label: n === 1 ? "1: strictly one by one" : String(n), value: n })),
         ],
         hidden: notSequential,
         onChange: () => applyQueueSettings(),
     },
     prioritizeVisible: {
         type: OptionType.BOOLEAN,
-        displayName: "On-screen GIFs first",
-        description: "Load the GIFs you can see before ones you scrolled past.",
+        displayName: TEXT.prioritizeVisible.title,
+        description: TEXT.prioritizeVisible.description,
         default: true,
         hidden: notSequential,
         onChange: () => applyQueueSettings(),
     },
     loadTimeout: {
         type: OptionType.SLIDER,
-        displayName: "Skip slow GIFs after (seconds)",
-        description: "Then the next GIF starts. The slow one keeps loading in the background.",
+        displayName: `${TEXT.loadTimeout.title} (seconds)`,
+        description: TEXT.loadTimeout.description,
         markers: [3, 5, 8, 10, 15, 20, 30],
         default: 10,
         stickToMarkers: true,
@@ -91,16 +97,16 @@ export const settings = definePluginSettings({
     },
     showProgress: {
         type: OptionType.BOOLEAN,
-        displayName: "Loading indicators",
-        description: "A dot, spinner or progress line on GIFs that haven't loaded yet.",
+        displayName: TEXT.showProgress.title,
+        description: TEXT.showProgress.description,
         default: true,
     },
 
-    pickerHeader: header("GIF picker"),
+    pickerHeader: header(SECTIONS.picker),
     favoritesOnly: {
         type: OptionType.BOOLEAN,
-        displayName: "Favourites only",
-        description: "Hide Trending and the featured categories on the picker's main page. Search and Favorites stay.",
+        displayName: TEXT.favoritesOnly.title,
+        description: TEXT.favoritesOnly.description,
         default: false,
     },
 
@@ -110,15 +116,15 @@ export const settings = definePluginSettings({
         component: () => <>{settingsPanels.favorites?.()}</>,
     },
 
-    advancedHeader: header("Status and cache"),
+    statusHeader: header(SECTIONS.status),
     patches: {
         type: OptionType.COMPONENT,
         component: () => <PatchesSettings />,
     },
     cacheSize: {
         type: OptionType.SLIDER,
-        displayName: "Remembered GIFs",
-        description: "Loaded GIFs that show at once when you scroll back to them.",
+        displayName: TEXT.cacheSize.title,
+        description: TEXT.cacheSize.description,
         markers: [300, 1000, 3000],
         default: 1000,
         stickToMarkers: true,
@@ -129,7 +135,54 @@ export const settings = definePluginSettings({
         type: OptionType.COMPONENT,
         component: () => <CacheSettings />,
     },
+    restoreDefaults: {
+        type: OptionType.COMPONENT,
+        component: () => <RestoreDefaults />,
+    },
 });
+
+/**
+ * Puts every setting back to its default (the `default` of each option, or the
+ * dropdown option marked default). Their onChange listeners apply the change.
+ */
+export function restoreDefaultSettings() {
+    const store = settings.store as Record<string, unknown>;
+    for (const [key, def] of Object.entries(settings.def) as [string, { type: OptionType; default?: unknown; options?: { value: unknown; default?: boolean; }[]; }][]) {
+        if (def.type === OptionType.COMPONENT) continue;
+        const value = "default" in def ? def.default : def.options?.find(o => o.default)?.value;
+        if (value !== undefined) store[key] = value;
+    }
+}
+
+/** The button at the end of the settings */
+function RestoreDefaults() {
+    return (
+        <section className={cl("settings-section")}>
+            <div className={cl("actions")}>
+                <Button
+                    variant="secondary"
+                    size="small"
+                    onClick={() => Alerts.show({
+                        ...RESTORE_DEFAULTS_CONFIRM,
+                        cancelText: "Cancel",
+                        onConfirm: restoreDefaultSettings,
+                    })}
+                >
+                    {TEXT.restoreDefaults.title}
+                </Button>
+                <Paragraph className={cl("muted")}>{TEXT.restoreDefaults.description}</Paragraph>
+            </div>
+        </section>
+    );
+}
+
+function isAutoQuality(): boolean {
+    return settings.store.quality === "auto";
+}
+
+function isAutoConcurrency(): boolean {
+    return !((settings.store.concurrency ?? 0) >= 1);
+}
 
 /** Whether GIFs load one by one (a function, so the settings above can refer to it before `settings` exists) */
 function isSequential(): boolean {

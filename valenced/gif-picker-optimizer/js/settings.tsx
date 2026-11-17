@@ -2,7 +2,8 @@
 /** @jsx valenced.react.React.createElement */
 /** @jsxFrag valenced.react.React.Fragment */
 /*
- * The settings page: Previews, Loading, GIF picker, Favourites, Patches, Cache.
+ * The settings page: Previews, Loading, GIF picker, Favourites, Status and cache,
+ * then Restore default settings. The words come from settingsText.ts (shared).
  * Options with several values are one row showing the current value; tapping it
  * lists the values right under it (one list open at a time).
  */
@@ -15,10 +16,14 @@ import { ScrollView } from "react-native";
 import type { PluginSettingsComponent } from "@valenced/plugins/types";
 import type { ComponentProps, ReactElement } from "react";
 
+import { describePatch, PATCHES_NOTE, patchStatuses, summarizePatches } from "./diagnostics";
 import { FavoritesSection } from "./favoritesSettings";
+import { openConfirmAlert } from "./favoritesUi";
 import type { Quality } from "./lowres";
-import type { CacheStat, Settings } from "./settingsStore";
+import type { Settings } from "./settingsStore";
 import { cacheControl, DefaultSettings } from "./settingsStore";
+import { cacheStatRows, cacheSummary, QUALITY_CHOICES, RESTORE_DEFAULTS_CONFIRM, SECTIONS, TEXT } from "./settingsText";
+import { applyQueueSettings } from "./state";
 
 interface Choice<T> {
     value: T;
@@ -26,12 +31,10 @@ interface Choice<T> {
     detail?: string;
 }
 
-const QUALITIES: Choice<Quality>[] = [
-    { value: "xs", label: "XS", detail: "Smallest and fastest, but blurry on most phones. One extra request per search." },
-    { value: "s", label: "S", detail: "Small. What Discord already loads for Klipy, so no extra request. Recommended." },
-    { value: "sd", label: "SD", detail: "Medium, sharper on large screens." },
-    { value: "original", label: "Original", detail: "No previews: every GIF loads at full size." },
-];
+/** Preview sizes ("auto" needs the screen's pixel density, which only the desktop build uses) */
+const QUALITIES: Choice<Quality>[] = QUALITY_CHOICES
+    .filter(c => c.value !== "auto")
+    .map(c => ({ value: c.value as Quality, label: c.label, detail: c.detail }));
 const CONCURRENCIES: Choice<number>[] = [1, 2, 3, 4, 6].map(n => ({
     value: n,
     label: `${n} at a time`,
@@ -107,15 +110,6 @@ function choiceRows<T>(o: {
     return rows;
 }
 
-/** "All 5 working" / "3 working, 2 not seen yet" */
-function patchesSummary(patches: CacheStat[]) {
-    const working = patches.filter(p => p.value === "Working").length;
-    const failed = patches.filter(p => p.value.startsWith("Failed")).length;
-    const waiting = patches.length - working - failed;
-    if (working === patches.length) return `All ${working} working`;
-    return [working && `${working} working`, waiting && `${waiting} not seen yet`, failed && `${failed} failed`].filter(Boolean).join(", ");
-}
-
 export default function SettingsComponent({ api: { jsonStorage: storage } }: Props) {
     const { Stack, TableRow, TableRowGroup, TableSwitchRow } = Design;
     const s: Settings = { ...DefaultSettings, ...storage.use() };
@@ -127,53 +121,59 @@ export default function SettingsComponent({ api: { jsonStorage: storage } }: Pro
     const refresh = useTicker();
 
     const running = !!cacheControl.stats;
-    const patches = cacheControl.patches?.() ?? [];
-    const stats = cacheControl.stats?.() ?? [];
-    const memory = stats.find(st => st.label === "Memory used")?.value.replace(/^About /, "");
-    const remembered = stats.find(st => st.label === "Loaded GIFs remembered")?.value;
+    const statuses = patchStatuses();
+    const numbers = cacheControl.stats?.();
     const choice = { open, setOpen };
+    const restoreDefaults = () => openConfirmAlert({
+        ...RESTORE_DEFAULTS_CONFIRM,
+        onConfirm: () => {
+            storage.set({ ...DefaultSettings });
+            applyQueueSettings(DefaultSettings);
+            setOpen(null);
+        },
+    });
 
     return (
         <Page>
             {/* Page doesn't scroll by itself, and these settings are taller than the screen */}
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 48 }}>
                 <Stack spacing={24}>
-                    <TableRowGroup title="Previews" description="Smaller versions of the GIFs in the picker. The GIF you send is always the full size one.">
+                    <TableRowGroup title={SECTIONS.previews.title} description={SECTIONS.previews.description}>
                         {choiceRows({
                             ...choice,
                             id: "quality",
-                            label: "Preview size",
-                            subLabel: QUALITIES.find(q => q.value === s.quality)?.detail ?? "",
+                            label: TEXT.quality.title,
+                            subLabel: QUALITIES.find(q => q.value === s.quality)?.detail ?? TEXT.quality.description,
                             value: s.quality,
                             choices: QUALITIES,
                             onChange: quality => update({ quality }),
                         })}
                         <TableSwitchRow
-                            label="Small Klipy previews"
-                            subLabel="Klipy is Discord's GIF source. Its small versions need one extra request per search page."
+                            label={TEXT.klipyLookup.title}
+                            subLabel={TEXT.klipyLookup.description}
                             value={s.klipyLookup}
                             onValueChange={(klipyLookup: boolean) => update({ klipyLookup })}
                         />
                         <TableSwitchRow
-                            label="Still favourites"
-                            subLabel="Show favourites as still images (Tenor, Giphy, Twitter and Discord links). Sent GIFs still animate."
+                            label={TEXT.stillFavorites.title}
+                            subLabel={`${TEXT.stillFavorites.description} Works for Tenor, Giphy, Twitter and Discord links.`}
                             value={s.stillFavorites}
                             onValueChange={(stillFavorites: boolean) => update({ stillFavorites })}
                         />
                     </TableRowGroup>
 
-                    <TableRowGroup title="Loading">
+                    <TableRowGroup title={SECTIONS.loading.title} description={SECTIONS.loading.description}>
                         <TableSwitchRow
-                            label="Load one by one"
-                            subLabel="Load GIFs in reading order, a few at a time, instead of all at once"
+                            label={TEXT.sequential.title}
+                            subLabel={TEXT.sequential.description}
                             value={s.sequential}
                             onValueChange={(sequential: boolean) => update({ sequential })}
                         />
                         {s.sequential ? choiceRows({
                             ...choice,
                             id: "concurrency",
-                            label: "GIFs at the same time",
-                            subLabel: "More is faster on a good connection",
+                            label: TEXT.concurrency.title,
+                            subLabel: TEXT.concurrency.description,
                             value: s.concurrency,
                             choices: CONCURRENCIES,
                             onChange: concurrency => update({ concurrency }),
@@ -181,30 +181,30 @@ export default function SettingsComponent({ api: { jsonStorage: storage } }: Pro
                         {s.sequential ? choiceRows({
                             ...choice,
                             id: "loadTimeout",
-                            label: "Skip slow GIFs after",
-                            subLabel: "Then the next one starts; the slow one keeps loading",
+                            label: TEXT.loadTimeout.title,
+                            subLabel: TEXT.loadTimeout.description,
                             value: s.loadTimeout,
                             choices: TIMEOUTS,
                             onChange: loadTimeout => update({ loadTimeout }),
                         }) : null}
                         <TableSwitchRow
-                            label="Loading indicators"
-                            subLabel="A dot, spinner or progress line on GIFs that haven't loaded yet"
+                            label={TEXT.showProgress.title}
+                            subLabel={TEXT.showProgress.description}
                             value={s.showProgress}
                             onValueChange={(showProgress: boolean) => update({ showProgress })}
                         />
                     </TableRowGroup>
 
-                    <TableRowGroup title="GIF picker">
+                    <TableRowGroup title={SECTIONS.picker.title}>
                         <TableSwitchRow
-                            label="Favourites only"
-                            subLabel="Hide Trending and the featured categories. Search and Favorites stay."
+                            label={TEXT.favoritesOnly.title}
+                            subLabel={TEXT.favoritesOnly.description}
                             value={s.favoritesOnly}
                             onValueChange={(favoritesOnly: boolean) => update({ favoritesOnly })}
                         />
                         <TableSwitchRow
-                            label="Faster GIF tab switch"
-                            subLabel="Open the GIF tab at once and build the picker right after, instead of freezing"
+                            label={TEXT.fastTabSwitch.title}
+                            subLabel={TEXT.fastTabSwitch.description}
                             value={s.fastTabSwitch}
                             onValueChange={(fastTabSwitch: boolean) => update({ fastTabSwitch })}
                         />
@@ -212,48 +212,52 @@ export default function SettingsComponent({ api: { jsonStorage: storage } }: Pro
 
                     <FavoritesSection />
 
-                    <TableRowGroup
-                        title="Patches"
-                        description="Whether the plugin's hooks into Discord work. One that stays “not seen yet” after you do what it says means Discord changed its code, and that part works like normal Discord."
-                    >
+                    <TableRowGroup title={SECTIONS.status.title} description={SECTIONS.status.description}>
                         <TableRow
-                            label={running ? patchesSummary(patches) : "Enable the plugin to see its patches"}
+                            label="Patches"
+                            subLabel={summarizePatches(statuses)}
                             arrow={running && !showPatches}
                             disabled={!running}
                             onPress={() => setShowPatches(v => !v)}
                         />
-                        {showPatches ? patches.map(p => <TableRow key={p.label} label={p.label} subLabel={p.value} />) : null}
-                    </TableRowGroup>
-
-                    <TableRowGroup title="Cache" description="What the plugin remembers about GIFs. Discord's own image cache isn't part of it.">
+                        {showPatches ? statuses.map(p => <TableRow key={p.label} label={p.label} subLabel={describePatch(p)} />) : null}
+                        {showPatches ? <TableRow key="patches-note" label="About patches" subLabel={PATCHES_NOTE} /> : null}
                         {choiceRows({
                             ...choice,
                             id: "cacheSize",
-                            label: "Remembered GIFs",
-                            subLabel: "Loaded GIFs that show at once when you scroll back",
+                            label: TEXT.cacheSize.title,
+                            subLabel: TEXT.cacheSize.description,
                             value: s.cacheSize,
                             choices: CACHE_SIZES,
                             onChange: cacheSize => update({ cacheSize }),
                         })}
                         <TableRow
-                            label={running ? `About ${memory ?? "0 B"} in memory` : "Enable the plugin to see its cache"}
-                            subLabel={running ? `${remembered ?? "0"} loaded GIFs remembered` : undefined}
+                            label="Cache"
+                            subLabel={numbers ? cacheSummary(numbers) : "Enable the plugin to see its cache"}
                             arrow={running && !showCache}
                             disabled={!running}
                             onPress={() => setShowCache(v => !v)}
                         />
-                        {showCache ? stats.filter(st => st.label !== "Memory used").map(st => (
+                        {showCache && numbers ? cacheStatRows(numbers).map(st => (
                             <TableRow key={st.label} label={st.label} subLabel={st.value} />
                         )) : null}
                         <TableRow
-                            label="Reset cache"
-                            subLabel="Forgets loaded GIFs, previews and the saved Klipy and Tenor lookups"
+                            label={TEXT.resetCache.title}
+                            subLabel={TEXT.resetCache.description}
                             variant="danger"
                             disabled={!cacheControl.reset}
                             onPress={() => {
                                 cacheControl.reset?.();
                                 refresh();
                             }}
+                        />
+                    </TableRowGroup>
+
+                    <TableRowGroup>
+                        <TableRow
+                            label={TEXT.restoreDefaults.title}
+                            subLabel={TEXT.restoreDefaults.description}
+                            onPress={restoreDefaults}
                         />
                     </TableRowGroup>
                 </Stack>

@@ -1,6 +1,7 @@
 import type { JsonStorage } from "@valenced/json-storage";
 
 import type { Quality } from "./lowres";
+import type { CacheNumbers } from "./settingsText";
 
 export interface Settings {
     quality: Quality;
@@ -36,17 +37,9 @@ export const DefaultSettings: Settings = {
     favoritesOnly: false,
 };
 
-/** One line of cache stats in settings */
-export interface CacheStat {
-    label: string;
-    value: string;
-}
-
-/** Set by the plugin while it runs, so settings can show stats and reset the caches */
+/** Set by the plugin while it runs, so settings can show its cache and reset it */
 export const cacheControl: {
-    stats?: () => CacheStat[];
-    /** Which patches work (diagnostics.ts) */
-    patches?: () => CacheStat[];
+    stats?: () => CacheNumbers;
     reset?: () => void;
 } = {};
 

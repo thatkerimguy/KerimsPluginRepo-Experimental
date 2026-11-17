@@ -1,25 +1,25 @@
 /*
- * Cache stats and reset, shown in settings through `cacheControl`.
+ * Cache figures and reset, shown in settings through `cacheControl`.
  */
 
-import { formatBytes } from "./cache";
-import { describePatch, patchStatuses } from "./diagnostics";
-import type { CacheStat } from "./settingsStore";
+import type { CacheNumbers } from "./settingsText";
 import { apiPreviews, failed, loaded, runtime, seen } from "./state";
 
-export function cacheStats(): CacheStat[] {
+export function cacheNumbers(): CacheNumbers {
     const klipy = runtime.klipy?.stats() ?? { saved: 0, recent: 0, bytes: 0 };
     const tenor = runtime.tenorPages?.stats() ?? { saved: 0, bytes: 0 };
-    const memory = loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + tenor.bytes;
-    return [
-        { label: "Loaded GIFs remembered", value: `${loaded.size} of ${loaded.max}` },
-        { label: "Loaded GIFs saved for next time", value: `${seen.size} of ${seen.max}` },
-        { label: "Klipy favourite lookups (saved)", value: `${klipy.saved}, plus ${klipy.recent} recent search results` },
-        { label: "Tenor favourites resolved (saved)", value: String(tenor.saved) },
-        { label: "Search result previews", value: String(apiPreviews.size) },
-        { label: "Previews that failed (saved for a week)", value: String(failed.size) },
-        { label: "Memory used", value: `About ${formatBytes(memory)}` },
-    ];
+    return {
+        loaded: loaded.size,
+        loadedMax: loaded.max,
+        seen: seen.size,
+        seenMax: seen.max,
+        klipySaved: klipy.saved,
+        klipyRecent: klipy.recent,
+        tenorSaved: tenor.saved,
+        searchPreviews: apiPreviews.size,
+        failed: failed.size,
+        memoryBytes: loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + tenor.bytes,
+    };
 }
 
 /** Clears every cache, also the saved lists and lookups. Tiles look things up again. */
@@ -32,9 +32,4 @@ export function resetCaches() {
     runtime.lowRes?.clear();
     runtime.klipy?.clear();
     runtime.tenorPages?.clear();
-}
-
-/** One line per patch: whether it's seen working (diagnostics.ts) */
-export function patchStats(): CacheStat[] {
-    return patchStatuses().map(p => ({ label: p.label, value: describePatch(p) }));
 }

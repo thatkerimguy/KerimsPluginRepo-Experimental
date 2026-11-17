@@ -53,7 +53,7 @@ Favourites saved from chat embeds sit behind Discord's media proxy. For Tenor, G
 
 | Section | Setting | Default |
 |---|---|---|
-| Previews | Preview size (XS, S, SD, Original; desktop also Auto) | S |
+| Previews | Preview size: XS (about 100 px), S (about 200 px), SD (about 400 px), Original; desktop also Auto | S |
 | | Small Klipy previews | On |
 | | Still favourites | Off |
 | Loading | Load one by one | On |
@@ -65,6 +65,7 @@ Favourites saved from chat embeds sit behind Discord's media proxy. For Tenor, G
 | | Faster GIF tab switch (mobile) | On |
 | Favourites | Export, import and merge, import and replace | |
 | Status and cache | Patches, remembered GIFs (1000), cache stats, reset | |
+| | Restore default settings | |
 
 ## Install on Vencord
 

@@ -36,7 +36,7 @@ First, open the plugin's settings → **Patches**. Do what each "not seen yet" l
 9. Favourites only: the main page shows search and Favorites, no Trending.
 10. Export the favourites, import the file with merge (toast shows the counts) and with replace (asks first). Import a file with a GIF from another site: it lists that site and asks before importing.
 11. Change "GIFs at the same time" with the picker open: the next tiles follow the new number. Turn off "Load one by one": its three dependent settings disappear.
-12. Settings read cleanly: headings for Previews, Loading, GIF picker, Favourites, Status and cache; the Patches and Cache summaries expand to details.
+12. Settings read cleanly: headings for Previews, Loading, GIF picker, Favourites, Status and cache; the Patches and Cache summaries expand to details; with Auto selected, Preview size and GIFs at the same time say what Auto is using; Restore default settings asks first, then puts everything back.
 13. Retries: in DevTools → Network, block a preview's domain (right click → Block request domain), open the picker, then unblock it within a few seconds: the tiles retry and load the preview, never the full size GIF. Left blocked, they end with a still, hollow ring.
 
 ### Mobile

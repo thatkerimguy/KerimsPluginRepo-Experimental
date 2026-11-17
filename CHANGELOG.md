@@ -5,6 +5,23 @@ the rules that came out of these entries are in CLAUDE.md; how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
+## 1.7.0 (2026-11-17, released from the experimental repository)
+
+What's new since the last stable release, for the release notes:
+- Failed previews are retried instead of loading the full size GIF; a tile that keeps failing shows a hollow ring and tries again later.
+- Settings reorganised on both desktop and mobile: sections (Previews, Loading, GIF picker, Favourites, Status and cache), plain titles and descriptions, preview sizes with rough pixel widths, "Auto" says what it's using right now (desktop), settings that don't apply are hidden, Patches and Cache are expandable summaries, and Restore default settings.
+- Patch status in settings, to see whether each hook into Discord works.
+- Favourites import checks the file: https only, and GIFs from other sites are listed before importing.
+- Precaching was removed (it rarely helped; GIFs seen before already load first from cache).
+- Many fixes from code reviews: tiles stuck waiting, Tenor still favourites on mobile, reset cache with the plugin off, much faster imports, and saving that batches writes and saves when Discord closes.
+
+**Changed on 2026-11-17 (1.7.0: settings wording shared, restore defaults; not tried in Discord or on a device):**
+- Version 1.7.0 (`manifest.json`).
+- `settingsText.ts` (new shared file): every word in both settings screens and the cache figures, so desktop and mobile read the same. Plainer cache labels ("Loaded this session", "Remembered across restarts (two weeks)", "Previews that failed (kept a week)"). Preview sizes say their rough width (about 100 / 200 / 400 px).
+- Desktop: Preview size and GIFs at the same time describe what Auto is using on this screen / connection right now (description getters). Both builds: Restore default settings, after a confirmation.
+- The patch summary moved into `diagnostics.ts` (`summarizePatches`); mobile reads the patch list directly instead of through `cacheControl`.
+- Checks: both type checks, mobile build + pre-init check, 41 unit tests (new: cache wording, patch summary, every setting has words). Not seen rendered.
+
 **Changed on 2026-11-17 (retries instead of originals, settings layout, README; not tried in Discord or on a device):**
 - A failed preview is retried after 1, 3 and 9 s instead of switching to the full size original (the user's call). Then a still image falls back to the animated preview; anything else gives up with a still, hollow ring (`gaveUp`) and tries again when the tile comes back. The retry frees the queue slot while it waits and bumps `attempt`, which both builds put in the image's key so the same URL loads again. `pickSrc` no longer skips previews in the saved `failed` list (only stills use it). Tests: retry three times then give up without the original, a retry that works, still → animated preview, an original that fails just stops.
 - Settings, desktop: sections with headings (Previews, Loading, GIF picker, Favourites, Status and cache), short titles (`displayName`) and descriptions, the three settings that only apply to one-by-one loading hidden while it's off, Patches and Cache as a one-line summary with details in an `ExpandableSection`.

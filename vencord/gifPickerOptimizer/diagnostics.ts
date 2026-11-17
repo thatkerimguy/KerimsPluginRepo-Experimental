@@ -53,3 +53,15 @@ export function describePatch({ state, detail }: PatchStatus) {
     if (state === "failed") return `Failed: ${detail ?? "unknown"}`;
     return `Not seen yet${detail ? `: ${detail}` : ""}`;
 }
+
+/** "All 3 working", "2 working, 1 not seen yet", or a hint when the plugin is off (nothing registered) */
+export function summarizePatches(statuses: PatchStatus[] = patchStatuses()) {
+    if (!statuses.length) return "Enable the plugin to see its patches";
+    const count = (state: PatchState) => statuses.filter(p => p.state === state).length;
+    const [working, waiting, failed] = [count("ok"), count("waiting"), count("failed")];
+    if (working === statuses.length) return `All ${working} working`;
+    return [working && `${working} working`, waiting && `${waiting} not seen yet`, failed && `${failed} failed`].filter(Boolean).join(", ");
+}
+
+/** Shown under the patch list */
+export const PATCHES_NOTE = "One that stays \"not seen yet\" after you do what it says means Discord changed its code, and that part works like normal Discord.";

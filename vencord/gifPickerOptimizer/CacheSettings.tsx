@@ -10,23 +10,25 @@ import { ExpandableSection } from "@components/ExpandableCard";
 import { Paragraph } from "@components/Paragraph";
 import { useEffect, useState } from "@webpack/common";
 
-import { formatBytes } from "./cache";
-import { describePatch, patchStatuses } from "./diagnostics";
+import { describePatch, PATCHES_NOTE, patchStatuses, summarizePatches } from "./diagnostics";
+import { type CacheNumbers, cacheStatRows, cacheSummary, type StatRow, TEXT } from "./settingsText";
 import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, runtime, seen, SEEN_STORE_KEY } from "./state";
 import { FRAME_BUDGET_BYTES, frames } from "./stillFrames";
 
-function cacheStats() {
+function cacheNumbers(): CacheNumbers {
     const klipy = runtime.klipy?.stats() ?? { saved: 0, recent: 0, bytes: 0 };
-    const memory = loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight;
-    return [
-        { label: "Loaded GIFs remembered", value: `${loaded.size} of ${loaded.max}` },
-        { label: "Loaded GIFs saved for next time", value: `${seen.size} of ${seen.max}` },
-        { label: "Klipy favourite lookups (saved)", value: `${klipy.saved}, plus ${klipy.recent} recent search results` },
-        { label: "Search result previews", value: String(apiPreviews.size) },
-        { label: "Previews that failed (saved for a week)", value: String(failed.size) },
-        { label: "Still frames", value: `${frames.size} (${formatBytes(frames.weight)} of ${formatBytes(FRAME_BUDGET_BYTES)})` },
-        { label: "Memory used", value: `About ${formatBytes(memory)}` },
-    ];
+    return {
+        loaded: loaded.size,
+        loadedMax: loaded.max,
+        seen: seen.size,
+        seenMax: seen.max,
+        klipySaved: klipy.saved,
+        klipyRecent: klipy.recent,
+        searchPreviews: apiPreviews.size,
+        failed: failed.size,
+        frames: { count: frames.size, bytes: frames.weight, budget: FRAME_BUDGET_BYTES },
+        memoryBytes: loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight,
+    };
 }
 
 /** Clears every cache, also the saved lists and Klipy lookups. Tiles look things up again. */
@@ -57,7 +59,7 @@ function useTicker() {
     return () => setTick(n => n + 1);
 }
 
-function StatsTable({ rows }: { rows: { label: string; value: string; }[]; }) {
+function StatsTable({ rows }: { rows: StatRow[]; }) {
     return (
         <table className={cl("stats")}>
             <tbody>
@@ -72,16 +74,6 @@ function StatsTable({ rows }: { rows: { label: string; value: string; }[]; }) {
     );
 }
 
-/** "All 3 working" / "2 working, 1 not seen yet" */
-function patchesSummary() {
-    const all = patchStatuses();
-    if (!all.length) return "Enable the plugin to see its patches";
-    const count = (state: string) => all.filter(p => p.state === state).length;
-    const [working, waiting, failedCount] = [count("ok"), count("waiting"), count("failed")];
-    if (working === all.length) return `All ${working} patches working`;
-    return [working && `${working} working`, waiting && `${waiting} not seen yet`, failedCount && `${failedCount} failed`].filter(Boolean).join(", ");
-}
-
 /** Whether the plugin's hooks into Discord work */
 export function PatchesSettings() {
     useTicker();
@@ -91,12 +83,10 @@ export function PatchesSettings() {
             <ExpandableSection renderContent={() => (
                 <>
                     <StatsTable rows={statuses.map(p => ({ label: p.label, value: describePatch(p) }))} />
-                    <Paragraph className={cl("muted")}>
-                        One that stays "not seen yet" after you do what it says (or a Vencord patch warning in the console) means Discord changed its code: that part works like normal Discord.
-                    </Paragraph>
+                    <Paragraph className={cl("muted")}>{PATCHES_NOTE}</Paragraph>
                 </>
             )}>
-                <Paragraph weight="medium">{patchesSummary()}</Paragraph>
+                <Paragraph weight="medium">Patches: {summarizePatches(statuses)}</Paragraph>
             </ExpandableSection>
         </section>
     );
@@ -105,14 +95,12 @@ export function PatchesSettings() {
 /** What the plugin remembers, and the reset button */
 export function CacheSettings() {
     const refresh = useTicker();
-    const stats = cacheStats();
-    const memory = stats.find(r => r.label === "Memory used")?.value ?? "";
-    const remembered = stats.find(r => r.label === "Loaded GIFs remembered")?.value ?? "";
+    const numbers = cacheNumbers();
 
     return (
         <section className={cl("settings-section")}>
-            <ExpandableSection renderContent={() => <StatsTable rows={stats.filter(r => r.label !== "Memory used")} />}>
-                <Paragraph weight="medium">{memory} in memory · {remembered} loaded GIFs remembered</Paragraph>
+            <ExpandableSection renderContent={() => <StatsTable rows={cacheStatRows(numbers)} />}>
+                <Paragraph weight="medium">{cacheSummary(numbers)}</Paragraph>
             </ExpandableSection>
             <div className={cl("actions")}>
                 <Button
@@ -123,9 +111,9 @@ export function CacheSettings() {
                         refresh();
                     }}
                 >
-                    Reset cache
+                    {TEXT.resetCache.title}
                 </Button>
-                <Paragraph className={cl("muted")}>Forgets loaded GIFs, previews, still frames and Klipy lookups. Discord's own image cache isn't touched.</Paragraph>
+                <Paragraph className={cl("muted")}>{TEXT.resetCache.description}</Paragraph>
             </div>
         </section>
     );

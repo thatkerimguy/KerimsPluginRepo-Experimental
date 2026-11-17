@@ -24,7 +24,7 @@ import { instead } from "@valenced/patcher";
 import type { ReactNode } from "react";
 import { AppState } from "react-native";
 
-import { cacheStats, patchStats, resetCaches } from "./cacheStats";
+import { cacheNumbers, resetCaches } from "./cacheStats";
 import { clearPatches, expectPatch, patchFailed, patchWorks } from "./diagnostics";
 import { KlipyResolver } from "./klipy";
 import type { AnyComponent } from "./modules";
@@ -108,9 +108,8 @@ export default plugin<{ jsonStorage: Settings; }>({
         runtime.logger = logger;
         loaded.resize(getSettings().cacheSize);
         applyQueueSettings(getSettings());
-        cacheControl.stats = cacheStats;
+        cacheControl.stats = cacheNumbers;
         cacheControl.reset = resetCaches;
-        cacheControl.patches = patchStats;
         // Seen working when the code each patch calls runs (diagnostics.ts, shown in settings)
         expectPatch("tiles", "GIF tiles (one by one, previews)", "open the GIF picker");
         expectPatch("resultsList", "On-screen GIFs first", "open the GIF picker");
@@ -162,7 +161,6 @@ export default plugin<{ jsonStorage: Settings; }>({
                 setStorage(undefined);
                 cacheControl.stats = undefined;
                 cacheControl.reset = undefined;
-                cacheControl.patches = undefined;
                 seen.detach();
                 failed.detach();
                 loaded.clear();
