@@ -4,50 +4,15 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import * as DataStore from "@api/DataStore";
 import { Button } from "@components/Button";
 import { ExpandableSection } from "@components/ExpandableCard";
 import { Paragraph } from "@components/Paragraph";
 import { useEffect, useState } from "@webpack/common";
 
+import { cacheNumbers, resetCaches } from "./cacheStats";
 import { describePatch, PATCHES_NOTE, patchStatuses, summarizePatches } from "./diagnostics";
-import { type CacheNumbers, cacheStatRows, cacheSummary, type StatRow, TEXT } from "./settingsText";
-import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loadedThisSession, runtime, seen, SEEN_STORE_KEY } from "./state";
-import { FRAME_BUDGET_BYTES, frames } from "./stillFrames";
-
-function cacheNumbers(): CacheNumbers {
-    const klipy = runtime.klipy?.stats() ?? { saved: 0, recent: 0, bytes: 0 };
-    return {
-        loaded: loadedThisSession.size,
-        loadedMax: loadedThisSession.max,
-        seen: seen.size,
-        seenMax: seen.max,
-        klipySaved: klipy.saved,
-        klipyRecent: klipy.recent,
-        searchPreviews: apiPreviews.size,
-        failed: failed.size,
-        frames: { count: frames.size, bytes: frames.weight, budget: FRAME_BUDGET_BYTES },
-        memoryBytes: loadedThisSession.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight,
-    };
-}
-
-/** Clears every cache, also the saved lists and Klipy lookups. Tiles look things up again. */
-function resetCaches() {
-    loadedThisSession.clear();
-    seen.clear();
-    failed.clear();
-    apiPreviews.clear();
-    // Its finished requests would otherwise count as "previews already there" for 5 minutes
-    runtime.lowRes?.clear();
-    frames.clear();
-    if (runtime.klipy) {
-        // Running: clearing also saves the empty list (seen and failed did above)
-        runtime.klipy.clear();
-    } else {
-        // Stopped: nothing is attached to the saved lists, so delete them directly
-        for (const key of [KLIPY_STORE_KEY, SEEN_STORE_KEY, FAILED_STORE_KEY]) void DataStore.del(key);
-    }
-}
+import { cacheStatRows, cacheSummary, type StatRow, TEXT } from "./settingsText";
+import { cl } from "./state";
 
 /** Re-renders every 2 seconds while the settings are open (live stats). Returns a function that re-renders now. */
 function useTicker() {

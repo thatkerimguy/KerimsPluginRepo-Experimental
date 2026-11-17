@@ -14,6 +14,11 @@ import { preconnect } from "./preconnect";
 import { createTracking } from "./tracking";
 
 export const PLUGIN_NAME = "GIFs+";
+/**
+ * This build's version, the same as the Valenced manifest's (a test checks). When it
+ * differs from the one that saved the caches, they're cleared (invalidation.ts).
+ */
+export const PLUGIN_VERSION = "1.7.1";
 /** The plugin's name before 1.6.0, to carry its settings over */
 export const OLD_PLUGIN_NAME = "GifPickerOptimizer";
 
@@ -25,6 +30,8 @@ export const KLIPY_STORE_KEY = "GifPickerOptimizer_klipyPreviews";
 export const OLD_PRECACHE_STORE_KEY = "GifPickerOptimizer_precached";
 export const SEEN_STORE_KEY = "GifPickerOptimizer_seen";
 export const FAILED_STORE_KEY = "GifPickerOptimizer_failed";
+/** The version that saved the caches */
+export const CACHE_VERSION_STORE_KEY = "GifPickerOptimizer_cacheVersion";
 
 /** Set while the plugin is running */
 export const runtime: {

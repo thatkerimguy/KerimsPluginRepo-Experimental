@@ -15,11 +15,12 @@
  * - Exports / imports favourites between accounts.
  */
 
-import { getJsonStorage, pluginStoragePathFor } from "@valenced/json-storage";
+import { getJsonStorage, JsonStorageUpdateMode, pluginStoragePathFor } from "@valenced/json-storage";
 import { AppState } from "react-native";
 
 import { cacheNumbers, resetCaches } from "./cacheStats";
 import { clearPatches, expectPatch } from "./diagnostics";
+import { createCacheInvalidation } from "./invalidation";
 import { KlipyResolver } from "./klipyLookups";
 import { applyPatches } from "./patches";
 import { createLowResPages, locale } from "./previews";
@@ -114,8 +115,35 @@ export default plugin<{ jsonStorage: Settings; }>({
             onError: e => runtime.logger?.warn?.("Klipy favourite lookup failed", e),
         });
 
+        // Clear the caches when a setting or the plugin version changes (invalidation.ts)
+        const invalidation = createCacheInvalidation({
+            reset: resetCaches,
+            onReset: reason => logger.info?.(`Cache cleared: ${reason}`),
+            onError: e => logger.error?.("Couldn't clear the cache", e),
+        });
+        invalidation.start();
+        // Compared with what they were, so reading the saved file at start isn't a change
+        let lastSettings = JSON.stringify(getSettings());
+        const stopWatchingSettings = jsonStorage.subscribe((_update, mode) => {
+            const now = JSON.stringify(getSettings());
+            const changed = now !== lastSettings;
+            lastSettings = now;
+            if (changed && mode !== JsonStorageUpdateMode.Load) invalidation.settingsChanged();
+        });
+        const { nums, label } = self.manifest.version;
+        const versionFile = getJsonStorage<{ version?: string; }>(
+            pluginStoragePathFor(PLUGIN_ID, "cache-version.json"),
+            { default: {} },
+        );
+        void invalidation.checkVersion(nums.join(".") + (label ? `-${label}` : ""), {
+            load: async () => (await versionFile.get())?.version,
+            save: version => void versionFile.set({ version }, true),
+        });
+
         cleanup(
             () => {
+                invalidation.stop();
+                stopWatchingSettings();
                 appState.remove();
                 clearPatches();
                 runtime.lowRes?.clear();

@@ -15,21 +15,23 @@
  */
 
 import * as DataStore from "@api/DataStore";
-import { migratePluginSettings } from "@api/Settings";
+import { migratePluginSettings, SettingsStore } from "@api/Settings";
 import definePlugin from "@utils/types";
 import { LocaleStore, RestAPI } from "@webpack/common";
 
+import { resetCaches } from "./cacheStats";
 import { clearPatches, expectPatch } from "./diagnostics";
 import { featured, mountCategories, needsCategories } from "./favoritesOnly";
 import { FavoritesSettings } from "./FavoritesSettings";
 import { GifTile } from "./GifTile";
+import { createCacheInvalidation } from "./invalidation";
 import type { GifItem } from "./items";
 import { KlipyResolver } from "./klipyLookups";
 import { patches } from "./patches";
 import { createLowResPages, lowResStarted } from "./previews";
 import type { UrlListStore } from "./saved";
 import { applyQueueSettings, onConnectionChange, settings } from "./settings";
-import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loadedThisSession, logger, OLD_PLUGIN_NAME, OLD_PRECACHE_STORE_KEY, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
+import { apiPreviews, CACHE_VERSION_STORE_KEY, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loadedThisSession, logger, OLD_PLUGIN_NAME, OLD_PRECACHE_STORE_KEY, PLUGIN_NAME, PLUGIN_VERSION, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
 import { frames } from "./stillFrames";
 import managedStyle from "./styles.css?managed";
 import { disconnectWatchers } from "./viewport";
@@ -42,6 +44,18 @@ const flushWhenHidden = () => {
     if (document.visibilityState === "hidden") flushSaved();
 };
 let stopWatchingConnection: (() => void) | undefined;
+
+/** Clears the caches when a setting or the plugin version changes */
+const invalidation = createCacheInvalidation({
+    reset: resetCaches,
+    onReset: reason => logger.info(`Cache cleared: ${reason}`),
+    onError: e => logger.error("Couldn't clear the cache", e),
+});
+/** Any of the plugin's settings changed (not turning it on or off) */
+const onSettingChanged = (_value: unknown, path: string) => {
+    if (!path.endsWith(".enabled")) invalidation.settingsChanged();
+};
+const SETTINGS_PREFIX = `plugins.${PLUGIN_NAME}`;
 
 /** A saved URL list ([url, when] pairs) in Vencord's DataStore */
 function savedList(key: string): UrlListStore {
@@ -101,9 +115,17 @@ export default definePlugin({
         stopWatchingConnection = onConnectionChange(applyQueueSettings);
         window.addEventListener("beforeunload", flushSaved);
         document.addEventListener("visibilitychange", flushWhenHidden);
+        invalidation.start();
+        SettingsStore.addPrefixChangeListener(SETTINGS_PREFIX, onSettingChanged);
+        void invalidation.checkVersion(PLUGIN_VERSION, {
+            load: () => DataStore.get<string>(CACHE_VERSION_STORE_KEY),
+            save: version => void DataStore.set(CACHE_VERSION_STORE_KEY, version),
+        });
     },
 
     stop() {
+        invalidation.stop();
+        SettingsStore.removePrefixChangeListener(SETTINGS_PREFIX, onSettingChanged);
         stopWatchingConnection?.();
         stopWatchingConnection = undefined;
         window.removeEventListener("beforeunload", flushSaved);

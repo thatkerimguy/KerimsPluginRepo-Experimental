@@ -48,6 +48,7 @@ Favourites saved from chat embeds sit behind Discord's media proxy. For Tenor, G
 ### Status and cache
 - **Patch status.** Settings show whether each of the plugin's hooks into Discord works. Discord changes its code often; when a hook stops matching, that part works like normal Discord, and this is where you'll see it.
 - **Cache stats and reset.** See what the plugin remembers and about how much memory it uses, and reset it. Its caches are bounded: a few MB of URLs, plus up to 24 MB of still frames on desktop.
+- **Cleared on changes.** Changing any GIFs+ setting, or updating to another version, clears what the plugin remembers, so nothing from the old settings or version sticks around. Discord's own image cache isn't touched.
 - **Theme colours.** Indicators and buttons use Discord's theme colours, so they fit light, dark and custom themes.
 
 ## Settings
@@ -146,7 +147,7 @@ Valenced plugins are built with the [Valenced plugin template](https://github.co
 
 - The files both builds share are edited in `vencord/gifPickerOptimizer` and copied with `node .github/scripts/sync-shared.mjs` (CI fails when they differ).
 - Tests and the checklist for trying a build in Discord: [TESTING.md](TESTING.md).
-- Releases: the `Publish Valenced repository` workflow publishes to GitHub Pages. It builds each plugin whose `manifest.json` version isn't published yet, so bump `version` in `valenced/gif-picker-optimizer/manifest.json` to release.
+- Releases: the `Publish Valenced repository` workflow publishes to GitHub Pages. It builds each plugin whose `manifest.json` version isn't published yet, so bump `version` in `valenced/gif-picker-optimizer/manifest.json` to release, and `PLUGIN_VERSION` in `vencord/gifPickerOptimizer/state.ts` to the same (a test checks; a new version clears the caches).
 - What changed and how it was checked: [CHANGELOG.md](CHANGELOG.md).
 
 ## About the code
