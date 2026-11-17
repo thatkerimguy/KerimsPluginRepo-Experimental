@@ -5,6 +5,12 @@ the rules that came out of these entries are in CLAUDE.md; how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
+## Unreleased
+
+**Changed on 2026-11-17 (mobile: tiles popping in blank while scrolling; not tried on a device):**
+- User report: while scrolling, a whole tile (GIF and grey box) disappears and comes back. It happens with GIFs+ off too, so it's Discord's list: its MasonryFlashList only renders about one row past the screen edge (`drawDistance` = `GIF_PICKER_ITEM_ESIMTATED_HEIGHT`, 180) and recycles tiles as soon as they leave it, so tiles reach the screen before they're rendered.
+- `OptimizedResultsList` (viewport.tsx) now sets `drawDistance` to at least 540 px (`DRAW_DISTANCE`, three rows). Visible-first order still comes from `onViewableItemsChanged`, so the extra tiles only queue behind the on-screen ones.
+
 ## 1.7.1 (2026-11-17)
 
 - Mobile: the loading spinner no longer stays for a moment after a GIF has appeared.

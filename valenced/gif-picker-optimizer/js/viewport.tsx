@@ -10,6 +10,7 @@
  * tiles that scroll away. Its `viewedItemIndexes` only picks placeholder vs real
  * tile for mounted ones. The plugin used to also "park" tiles far outside the
  * visible range; FlashList had unmounted those already, so that was removed.
+ * It does widen `drawDistance` (DRAW_DISTANCE), so tiles are rendered before they scroll in.
  */
 
 import type { ReactElement, ReactNode } from "react";
@@ -76,7 +77,16 @@ interface ViewableInfo {
 interface FlashListProps {
     onViewableItemsChanged?: (info: ViewableInfo) => void;
     renderItem?: unknown;
+    drawDistance?: number;
 }
+
+/**
+ * How far past the screen edge the list renders tiles, in px. Discord's is about one
+ * row (GIF_PICKER_ITEM_ESIMTATED_HEIGHT, 180), so when scrolling outpaces rendering,
+ * tiles at the edge show up blank (not even the grey box) and pop in. Three rows keeps
+ * them ready. The extra tiles only queue: on-screen GIFs still load first.
+ */
+const DRAW_DISTANCE = 540;
 
 const isFlashList = (n: unknown): n is ReactElement<FlashListProps> =>
     isValidElement(n)
@@ -104,7 +114,10 @@ export function OptimizedResultsList({ props, render }: { props: ResultsListProp
 
     const [result, hit] = replaceInTree(tree, isFlashList, list => {
         originalCallback.current = list.props.onViewableItemsChanged ?? null;
-        return cloneElement(list, { onViewableItemsChanged });
+        return cloneElement(list, {
+            onViewableItemsChanged,
+            drawDistance: Math.max(list.props.drawDistance ?? 0, DRAW_DISTANCE),
+        });
     });
 
     if (hit) patchWorks("resultsList");
