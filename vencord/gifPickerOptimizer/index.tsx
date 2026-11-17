@@ -53,7 +53,7 @@ function savedList(key: string): UrlListStore {
 
 export default definePlugin({
     name: PLUGIN_NAME,
-    description: "A better GIF picker: one-by-one loading with low resolution previews, instant reloads of GIFs seen before, and exporting / importing favourites. Sends the full resolution GIF.",
+    description: "Various Tweaks to the Discord's Gif Picker",
     authors: [{ name: "thatkerimguy", id: 0n }],
     settings,
     managedStyle,

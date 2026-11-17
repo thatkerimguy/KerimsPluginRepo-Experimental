@@ -1,6 +1,8 @@
 # GIFs+
 
-A faster GIF picker for Discord, as a plugin for **Vencord** (desktop and web) and **Valenced** (mobile). GIFs load one by one as small previews, and what you send is always the full size GIF.
+Various Tweaks to the Discord's Gif Picker. A plugin for **Vencord** (desktop and web) and **Valenced** (mobile): GIFs load one by one as small previews, and what you send is always the full size GIF.
+
+Part of KerimsPluginRepo: Kerim's Plugins for Vencord and Valenced.
 
 ## Features
 
