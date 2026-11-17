@@ -10,7 +10,7 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import { useEffect, useRef, useState } from "@webpack/common";
 import type { MouseEvent } from "react";
 
-import { Indicator, LoadOverlay, StillTile } from "./components";
+import { Indicator, LoadOverlay, PLACEHOLDER_COLOR, shimmerInStep, StillTile } from "./components";
 import { wait } from "./klipy";
 import { isVideoUrl, normalizeUrl, stillUrl } from "./lowres";
 import { isFavoritesTile, klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
@@ -196,6 +196,13 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
         loadTimeout,
     });
 
+    // A tile that was resolving already showed a spinner: the loading one carries on instead of growing out of a dot
+    const spinnerShown = useRef(false);
+    if (phase === "resolving") spinnerShown.current = true;
+    else if (phase === "queued") spinnerShown.current = false;
+    // Fixed at mount, so the placeholder's shimmer doesn't jump on re-render
+    const [shimmerSync] = useState(shimmerInStep);
+
     const click = (e: MouseEvent) => rest.onClick?.(item, rest.index, { shiftKey: e.shiftKey });
     const contextMenu = (e: MouseEvent) => rest.onContextMenu?.(e, item);
 
@@ -205,11 +212,11 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
             <div
                 ref={viewRef}
                 className={cl("tile")}
-                style={coords}
+                style={{ ...coords, ...shimmerSync }}
                 onClick={click}
                 onContextMenu={contextMenu}
             >
-                {showProgress && !precached && <Indicator state={phase === "resolving" ? "loading" : "queued"} />}
+                {showProgress && <Indicator state={precached ? "cached" : phase === "resolving" ? "loading" : "queued"} />}
                 {rest.renderExtras?.(item)}
             </div>
         );
@@ -228,7 +235,9 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                 source={source}
                 video={source.capture && (rest.format === GIF_TYPE_VIDEO || isVideoUrl(shown))}
                 loading={phase === "loading"}
-                showProgress={showProgress && !precached}
+                showProgress={showProgress}
+                precached={precached}
+                enter={!spinnerShown.current}
                 coords={coords}
                 onClick={click}
                 onContextMenu={contextMenu}
@@ -245,6 +254,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
         <Result
             key={shown}
             {...rest}
+            color={rest.color ?? PLACEHOLDER_COLOR}
             src={shown}
             renderExtras={(it: GifItem) => (
                 <>
@@ -256,7 +266,10 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                         <LoadOverlay
                             src={shown}
                             video={video}
-                            showProgress={showProgress && phase === "loading" && !precached}
+                            loading={phase === "loading"}
+                            showProgress={showProgress && phase === "loading"}
+                            precached={precached}
+                            enter={!spinnerShown.current}
                             onDone={onDone}
                             onError={onError}
                         />
@@ -269,6 +282,6 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
 
 export const SequentialResult = ErrorBoundary.wrap(SequentialResultInner, {
     // If anything goes wrong, render Discord's own tile untouched
-    fallback: ({ wrappedProps: { Result, resultType, ...props } }) => <Result {...props} />,
+    fallback: ({ wrappedProps: { Result, resultType, ...props } }) => <Result color={PLACEHOLDER_COLOR} {...props} />,
     displayName: "GifPickerOptimizerResult",
 });

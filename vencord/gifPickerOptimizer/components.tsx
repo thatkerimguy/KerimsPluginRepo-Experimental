@@ -6,34 +6,64 @@
  */
 
 import { useEffect, useRef, useState } from "@webpack/common";
-import type { MouseEvent, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 
 import type { StillSource } from "./previews";
 import { cl } from "./state";
 import { captureFrame, drawCover } from "./stillFrames";
 import type { TileCoords } from "./types";
 
-const RING_R = 11;
-const RING_C = 2 * Math.PI * RING_R;
+/**
+ * - queued: a breathing dot
+ * - loading: the dot grows into a spinner, which flattens into a progress line once progress is known
+ * - cached (precached / seen, normally straight from the cache): a breathing circle that morphs into a square and back
+ */
+export type IndicatorState = "queued" | "loading" | "cached";
 
-export function Indicator({ state, progress }: { state: "queued" | "loading"; progress?: number | null; }) {
-    const determinate = state === "loading" && progress != null;
+/** Lengths of the looping animations in styles.css (vc-gpo-breathe, vc-gpo-morph) */
+const LOOP_MS = { queued: 1600, cached: 2400 } as const;
+
+/**
+ * A negative delay that puts a looping animation where it would be had it started at page load.
+ * Every tile then breathes in step, and a tile moving from the placeholder to Discord's tile
+ * (a new element) carries on where it was instead of starting over.
+ */
+const inStep = (period: number) => ({ animationDelay: `${-(performance.now() % period)}ms` });
+
+/** Length of vc-gpo-shimmer */
+const SHIMMER_MS = 1600;
+/** For the tile's ::after shimmer, which can't take an inline animationDelay */
+export const shimmerInStep = () => ({ "--vc-gpo-sync": `${-(performance.now() % SHIMMER_MS)}ms` }) as CSSProperties;
+
+/**
+ * Passed to Discord's tile as `color`, the background it shows until its GIF loads.
+ * Without it Discord picks a bright purple or blue from a fixed palette, which ignores the theme.
+ * Same as the placeholder's background (.vc-gpo-tile).
+ */
+export const PLACEHOLDER_COLOR = "var(--background-mod-subtle)";
+
+export function Indicator({ state, progress, enter = true }: {
+    state: IndicatorState;
+    progress?: number | null;
+    /** Play the entry animation (dot to spinner, cached fade-in). False when the previous element already showed this state. */
+    enter?: boolean;
+}) {
+    const p = state === "loading" && progress != null ? Math.min(1, Math.max(0, progress)) : null;
+
+    let shape: ReactNode;
+    if (state === "queued") shape = <div className={cl("dot")} style={inStep(LOOP_MS.queued)} />;
+    else if (state === "cached") shape = <div className={cl("shape")} style={inStep(LOOP_MS.cached)} />;
+    else if (p == null) shape = <div className={cl("spinner", { "spinner-enter": enter })} />;
+    else shape = (
+        <div className={cl("line")}>
+            <div className={cl("line-fill")} style={{ width: `${p * 100}%` }} />
+        </div>
+    );
+
     return (
-        <div className={cl("indicator", `indicator-${state}`)} aria-hidden="true">
-            <svg width="28" height="28" viewBox="0 0 28 28" className={cl("ring", { "ring-spin": state === "loading" && !determinate })}>
-                <circle className={cl("track")} cx="14" cy="14" r={RING_R} />
-                {state === "loading" && (
-                    <circle
-                        className={cl("bar")}
-                        cx="14"
-                        cy="14"
-                        r={RING_R}
-                        strokeDasharray={RING_C}
-                        strokeDashoffset={determinate ? RING_C * (1 - Math.min(1, Math.max(0, progress!))) : RING_C * 0.72}
-                    />
-                )}
-            </svg>
-            {determinate && <span className={cl("pct")}>{Math.round(progress! * 100)}%</span>}
+        <div className={cl("indicator", `indicator-${state}`, { "indicator-enter": enter })} aria-hidden="true">
+            {shape}
+            {p != null && <span className={cl("pct")}>{Math.round(p * 100)}%</span>}
         </div>
     );
 }
@@ -41,7 +71,13 @@ export function Indicator({ state, progress }: { state: "queued" | "loading"; pr
 interface LoadOverlayProps {
     src: string;
     video: boolean;
+    /** Still loading: shimmer like the placeholder */
+    loading: boolean;
     showProgress: boolean;
+    /** Precached / seen: the cached shape instead of the spinner */
+    precached: boolean;
+    /** False when the placeholder already showed a spinner (Klipy lookup), so it doesn't grow out of a dot again */
+    enter: boolean;
     onDone(): void;
     onError(): void;
 }
@@ -56,7 +92,9 @@ const HAVE_FUTURE_DATA = 3;
  * Rendered inside Discord's GIF tile (through renderExtras). Watches the tile's
  * <video>/<img> for load events and draws the progress overlay.
  */
-export function LoadOverlay({ src, video, showProgress, onDone, onError }: LoadOverlayProps) {
+export function LoadOverlay({ src, video, loading, showProgress, precached, enter, onDone, onError }: LoadOverlayProps) {
+    // Fixed at mount, so the shimmer doesn't jump on re-render
+    const [sync] = useState(shimmerInStep);
     const ref = useRef<HTMLDivElement>(null);
     const [progress, setProgress] = useState<number | null>(null);
     const cbs = useRef({ onDone, onError });
@@ -130,8 +168,11 @@ export function LoadOverlay({ src, video, showProgress, onDone, onError }: LoadO
     }, [src, video]);
 
     return (
-        <div ref={ref} className={cl("overlay")}>
-            {showProgress && <Indicator state="loading" progress={progress} />}
+        <div ref={ref} className={cl("overlay", { "overlay-loading": loading })} style={sync}>
+            {showProgress && (precached
+                // Carries on from the placeholder's shape, so no fade-in
+                ? <Indicator state="cached" enter={false} />
+                : <Indicator state="loading" progress={progress} enter={enter} />)}
         </div>
     );
 }
@@ -142,6 +183,8 @@ interface StillTileProps {
     video: boolean;
     loading: boolean;
     showProgress: boolean;
+    precached: boolean;
+    enter: boolean;
     coords: TileCoords;
     onClick(e: MouseEvent): void;
     onContextMenu(e: MouseEvent): void;
@@ -151,7 +194,7 @@ interface StillTileProps {
 }
 
 /** A favourite shown as a still image instead of Discord's (animated) tile */
-export function StillTile({ viewRef, source, video, loading, showProgress, coords, onClick, onContextMenu, extras, onDone, onError }: StillTileProps) {
+export function StillTile({ viewRef, source, video, loading, showProgress, precached, enter, coords, onClick, onContextMenu, extras, onDone, onError }: StillTileProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cbs = useRef({ onDone, onError });
     cbs.current = { onDone, onError };
@@ -200,7 +243,9 @@ export function StillTile({ viewRef, source, video, loading, showProgress, coord
                         onError={() => cbs.current.onError()}
                     />
                 )}
-            {loading && showProgress && <Indicator state="loading" />}
+            {loading && showProgress && (precached
+                ? <Indicator state="cached" enter={false} />
+                : <Indicator state="loading" enter={enter} />)}
             {extras}
         </div>
     );

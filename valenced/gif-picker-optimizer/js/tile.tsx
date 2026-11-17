@@ -10,7 +10,7 @@
 import { Tokens } from "@valenced/discord/common/tokens";
 import { Design } from "@valenced/discord/design";
 import { isValidElement, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { wait } from "./klipy";
 import { normalizeUrl } from "./lowres";
@@ -40,26 +40,171 @@ export interface ItemProps {
     onPressGIF(item: GifItem, index: number): void;
 }
 
-function Indicator({ state, progress }: { state: "queued" | "loading"; progress: number | null; }) {
+/**
+ * - queued: a breathing dot
+ * - loading: the dot grows into a spinner, which squashes into a progress line once progress is known
+ * - cached (precached / seen, normally straight from the cache): a breathing circle that turns into a square and back
+ */
+type IndicatorState = "queued" | "loading" | "cached";
+
+/**
+ * Looping animations shared by every tile, so they all move in step and cost one
+ * animation each instead of one per tile. Native driver only (transforms and
+ * opacity), so nothing runs on the JS thread per frame. A loop runs while a tile uses it.
+ */
+const loops = lazy(() => {
+    const shared = (value: Animated.Value, make: () => Animated.CompositeAnimation) => {
+        let users = 0;
+        let running: Animated.CompositeAnimation | null = null;
+        return {
+            value,
+            use() {
+                if (users++ === 0) {
+                    running = Animated.loop(make());
+                    running.start();
+                }
+                return () => {
+                    if (--users === 0) {
+                        running?.stop();
+                        running = null;
+                    }
+                };
+            },
+        };
+    };
+    const there = (value: Animated.Value, toValue: number, duration: number, easing = Easing.inOut(Easing.ease)) =>
+        Animated.timing(value, { toValue, duration, easing, useNativeDriver: true });
+    const back = (value: Animated.Value, half: number) => Animated.sequence([there(value, 1, half), there(value, 0, half)]);
+
+    const breathe = new Animated.Value(0);
+    const spin = new Animated.Value(0);
+    const morph = new Animated.Value(0);
+    return {
+        /** 0 → 1 → 0 in 1.6 s */
+        breathe: shared(breathe, () => back(breathe, 800)),
+        /** 0 → 1 in 0.8 s, one turn */
+        spin: shared(spin, () => there(spin, 1, 800, Easing.linear)),
+        /** circle (0) → square (1) → circle in 2.4 s */
+        morph: shared(morph, () => back(morph, 1200)),
+    };
+});
+type LoopName = "breathe" | "spin" | "morph";
+
+function useLoops(names: LoopName[]) {
+    const key = names.join();
+    useEffect(() => {
+        const release = names.map(n => loops()[n].use());
+        return () => release.forEach(r => r());
+    }, [key]);
+}
+
+/** A per-tile transition value, 0 or 1, animated (native driver) when `on` changes */
+function useTransition(on: boolean, duration: number, easing: (t: number) => number, delay = 0) {
+    const [value] = useState(() => new Animated.Value(on ? 1 : 0));
+    const first = useRef(true);
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
+            return;
+        }
+        const anim = Animated.timing(value, { toValue: on ? 1 : 0, duration: on ? duration : 0, delay: on ? delay : 0, easing, useNativeDriver: true });
+        anim.start();
+        return () => anim.stop();
+    }, [on]);
+    return value;
+}
+
+const clamp = { extrapolate: "clamp" } as const;
+const range = (v: Animated.Value, inputRange: number[], outputRange: number[] | string[]) =>
+    v.interpolate({ inputRange, outputRange, ...clamp } as any);
+
+/**
+ * Stays mounted from queued to loaded (the tile keeps it at the same place in the tree),
+ * so each state turns into the next instead of being swapped.
+ */
+function Indicator({ state, progress }: { state: IndicatorState; progress: number | null; }) {
     const themed = useThemedStyles();
-    if (state === "queued") {
+    const s = styles();
+    const p = state === "loading" && progress != null ? Math.min(1, Math.max(0, progress)) : null;
+
+    useLoops(state === "queued" ? ["breathe"] : state === "cached" ? ["breathe", "morph"] : p == null ? ["spin"] : []);
+    const { breathe, spin, morph } = { breathe: loops().breathe.value, spin: loops().spin.value, morph: loops().morph.value };
+
+    /** dot (0) → spinner (1), with a small overshoot */
+    const grow = useTransition(state === "loading", 400, Easing.out(Easing.back(1.6)));
+    /** spinner (0) → line (1) */
+    const flat = useTransition(p != null, 380, Easing.bezier(0.5, 0, 0.2, 1));
+    /** cached: wait a moment before showing, so quick cache hits don't flash it */
+    const [appear] = useState(() => new Animated.Value(state === "cached" ? 0 : 1));
+    useEffect(() => {
+        if (state !== "cached") return;
+        const anim = Animated.timing(appear, { toValue: 1, duration: 200, delay: 150, useNativeDriver: true });
+        anim.start();
+        return () => anim.stop();
+    }, [state === "cached"]);
+
+    const breathing = {
+        opacity: range(breathe, [0, 1], [0.5, 0.95]),
+        transform: [{ scale: range(breathe, [0, 1], [0.6, 1]) }],
+    };
+
+    if (state === "cached") {
         return (
-            <View style={styles().overlay} pointerEvents="none">
-                <View style={themed.queuedDot} />
+            <View style={s.overlay} pointerEvents="none">
+                <Animated.View style={[s.box, { opacity: appear }]}>
+                    <Animated.View style={[s.layer, breathing]}>
+                        <Animated.View style={[s.layer, { transform: [{ rotate: range(morph, [0, 1], ["0deg", "90deg"]) }] }]}>
+                            <Animated.View style={[themed.dot, { opacity: range(morph, [0.2, 0.8], [1, 0]) }]} />
+                            <Animated.View style={[themed.square, s.stacked, { opacity: range(morph, [0.2, 0.8], [0, 1]) }]} />
+                        </Animated.View>
+                    </Animated.View>
+                </Animated.View>
             </View>
         );
     }
-    const p = progress == null ? null : Math.min(1, Math.max(0, progress));
+
     return (
-        <View style={styles().overlay} pointerEvents="none">
-            <ActivityIndicator size="small" color={themed.spinner.color} />
+        <View style={s.overlay} pointerEvents="none">
+            <View style={s.box}>
+                {/* The dot breathes; when loading starts it swells and fades into the ring */}
+                <Animated.View style={[s.layer, state === "queued" ? breathing : null]}>
+                    <Animated.View
+                        style={[themed.dot, {
+                            opacity: range(grow, [0, 0.6], [1, 0]),
+                            transform: [{ scale: range(grow, [0, 1], [1, 2.2]) }],
+                        }]}
+                    />
+                </Animated.View>
+                {/* The ring grows out of the dot and spins; when progress shows up it squashes flat and fades into the line */}
+                <Animated.View
+                    style={[s.layer, {
+                        opacity: range(flat, [0, 0.6], [1, 0]),
+                        transform: [{ scaleX: range(flat, [0, 1], [1, 2]) }, { scaleY: range(flat, [0, 1], [1, 0.18]) }],
+                    }]}
+                >
+                    <Animated.View style={{ opacity: range(grow, [0.2, 0.7], [0, 1]), transform: [{ scale: range(grow, [0, 1], [0.45, 1]) }] }}>
+                        <Animated.View
+                            style={[themed.ring, p == null && { transform: [{ rotate: range(spin, [0, 1], ["0deg", "360deg"]) }] }]}
+                        />
+                    </Animated.View>
+                </Animated.View>
+                {p != null && (
+                    <Animated.View
+                        style={[s.layer, {
+                            opacity: range(flat, [0.35, 1], [0, 1]),
+                            transform: [{ scaleX: range(flat, [0, 1], [0.5, 1]) }],
+                        }]}
+                    >
+                        <View style={themed.line}>
+                            <View style={[themed.lineFill, { width: `${Math.round(p * 100)}%` }]} />
+                        </View>
+                    </Animated.View>
+                )}
+            </View>
             {p != null && (
-                <>
-                    <View style={themed.track}>
-                        <View style={[themed.bar, { width: `${Math.round(p * 100)}%` }]} />
-                    </View>
+                <Animated.View style={{ opacity: range(flat, [0.6, 1], [0, 1]) }}>
                     <Text style={themed.pct}>{Math.round(p * 100)}%</Text>
-                </>
+                </Animated.View>
             )}
         </View>
     );
@@ -87,7 +232,7 @@ function useTileLoader({ item, index, still, sequential, concurrency, loadTimeou
     });
     const [phase, setPhase] = useState<Phase>(() => (chosen ? "done" : "queued"));
     const [progress, setProgress] = useState<number | null>(null);
-    /** Precached: first in the queue and no spinner (it normally comes straight from the cache) */
+    /** Precached: first in the queue, and the cached indicator instead of the spinner (it normally comes straight from the cache) */
     const [precached, setPrecached] = useState(false);
 
     const ticketRef = useRef<Ticket | null>(null);
@@ -267,11 +412,19 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     const [result, hit] = replaceInTree(tree, isImage, (img: any) => {
         const imgProps = img.props;
 
+        // One Indicator at the same place in the frame from queued to loaded, so it animates between states
+        const indicatorState = !showProgress || phase === "done" ? null
+            : precached ? "cached"
+            : phase === "queued" ? "queued"
+            : "loading";
+        const indicator = indicatorState && <Indicator state={indicatorState} progress={phase === "loading" ? progress : null} />;
+
         // Waiting for its turn or being looked up: an empty frame, no image in memory
         if (phase === "queued" || phase === "resolving") {
             return (
                 <View style={[imgProps.style, styles().frame]}>
-                    {showProgress && !precached && <Indicator state={phase === "resolving" ? "loading" : "queued"} progress={null} />}
+                    {null}
+                    {indicator}
                 </View>
             );
         }
@@ -305,7 +458,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         return (
             <View style={[imgProps.style, styles().frame]}>
                 {image}
-                {phase === "loading" && showProgress && !precached && <Indicator state="loading" progress={progress} />}
+                {indicator}
             </View>
         );
     });
@@ -330,31 +483,52 @@ const styles = lazy(() => StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
+    /** The indicator's shapes are layered in here, centred */
+    box: {
+        width: 44,
+        height: 22,
+    },
+    layer: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    /** Second shape on top of the first, in the same spot */
+    stacked: {
+        position: "absolute",
+    },
 }));
 
 /** Colours from Discord's theme tokens (resolved for the current theme by the hook) */
 const themedStyles = lazy(() => Design.createStyles({
-    spinner: {
-        color: Tokens.default.colors.TEXT_STRONG,
+    dot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: Tokens.default.colors.TEXT_MUTED,
     },
-    queuedDot: {
+    square: {
+        width: 10,
+        height: 10,
+        borderRadius: 1.5,
+        backgroundColor: Tokens.default.colors.TEXT_MUTED,
+    },
+    ring: {
         width: 22,
         height: 22,
         borderRadius: 11,
         borderWidth: 3,
-        borderColor: Tokens.default.colors.TEXT_MUTED,
-        opacity: 0.4,
+        borderColor: Tokens.default.colors.BORDER_SUBTLE,
+        borderTopColor: Tokens.default.colors.BACKGROUND_BRAND,
     },
-    track: {
-        marginTop: 6,
-        width: "55%",
-        maxWidth: 80,
-        height: 3,
+    line: {
+        width: 44,
+        height: 4,
         borderRadius: 2,
         backgroundColor: Tokens.default.colors.BORDER_SUBTLE,
         overflow: "hidden",
     },
-    bar: {
+    lineFill: {
         height: "100%",
         backgroundColor: Tokens.default.colors.BACKGROUND_BRAND,
     },
