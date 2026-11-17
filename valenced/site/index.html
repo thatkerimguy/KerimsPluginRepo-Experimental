@@ -1,0 +1,280 @@
+<!doctype html>
+<!--
+  Landing page of the GitHub Pages site (the Valenced plugin repository).
+  The publish workflow copies this file to the gh-pages branch as index.html.
+  The plugin list is read from index.json, so it never needs editing per release.
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KerimsPluginRepo</title>
+    <meta name="description" content="Kerim's Discord plugins for Valenced and Vencord, with their source code.">
+    <style>
+        :root {
+            --bg: #f6f6f8;
+            --card: #ffffff;
+            --text: #1c1d22;
+            --muted: #5c5f6b;
+            --border: #dfe0e6;
+            --accent: #4752c4;
+            --accent-text: #ffffff;
+            --code-bg: #eceef3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #17181c;
+                --card: #212228;
+                --text: #ececf1;
+                --muted: #a3a6b4;
+                --border: #33353e;
+                --accent: #7984f5;
+                --accent-text: #11121a;
+                --code-bg: #2b2d35;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        main {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 40px 16px 64px;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 28px;
+        }
+
+        h2 {
+            margin: 40px 0 12px;
+            font-size: 20px;
+        }
+
+        h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        p {
+            margin: 0 0 12px;
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        code {
+            font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+            font-size: 14px;
+            background: var(--code-bg);
+            border-radius: 6px;
+            padding: 2px 6px;
+            overflow-wrap: anywhere;
+        }
+
+        .url {
+            flex: 1 1 280px;
+            display: block;
+            padding: 10px 12px;
+        }
+
+        button,
+        .button {
+            display: inline-block;
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            background: var(--accent);
+            color: var(--accent-text);
+            font: inherit;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .button.secondary {
+            background: var(--code-bg);
+            color: var(--text);
+        }
+
+        .badge {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 1px 8px;
+        }
+
+        .links {
+            margin-top: 12px;
+        }
+
+        details {
+            margin-top: 8px;
+        }
+
+        summary {
+            cursor: pointer;
+            color: var(--muted);
+        }
+
+        ul {
+            margin: 8px 0 0;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>KerimsPluginRepo</h1>
+        <p class="muted" id="tagline">Discord plugins for Valenced (mobile) and Vencord (desktop), with their source code.</p>
+
+        <h2>Add to Valenced</h2>
+        <div class="card">
+            <p>Add this URL as a plugin repository in Valenced, then install plugins from it. Updates come through the same URL.</p>
+            <div class="row">
+                <code class="url" id="repo-url">https://thatkerimguy.github.io/KerimsPluginRepo/index.json</code>
+                <button type="button" id="copy">Copy</button>
+            </div>
+        </div>
+
+        <h2>Plugins</h2>
+        <div id="plugins">
+            <div class="card">
+                <h3>GIFs+</h3>
+                <p class="muted">A faster GIF picker (sequential loading, low resolution previews, remembers loaded GIFs), plus precaching and exporting / importing favourites between accounts.</p>
+                <div class="row links">
+                    <a class="button secondary" href="https://github.com/thatkerimguy/KerimsPluginRepo/tree/main/valenced/gif-picker-optimizer">Valenced source</a>
+                    <a class="button secondary" href="https://github.com/thatkerimguy/KerimsPluginRepo/tree/main/vencord/gifPickerOptimizer">Vencord source</a>
+                </div>
+            </div>
+        </div>
+
+        <h2>Source code</h2>
+        <div class="card">
+            <p>Everything here is built from the public repository by a GitHub Actions workflow on every release, so the downloads always match the source on <code>main</code>.</p>
+            <div class="row links">
+                <a class="button" href="https://github.com/thatkerimguy/KerimsPluginRepo">thatkerimguy/KerimsPluginRepo</a>
+                <a class="button secondary" href="https://github.com/thatkerimguy/KerimsPluginRepo#readme">Install and build instructions</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const REPO = "https://github.com/thatkerimguy/KerimsPluginRepo";
+        // Plugin id -> source folders (Valenced folder is the id without the author prefix)
+        const VENCORD_FOLDERS = { "thatkerimguy.gif-picker-optimizer": "gifPickerOptimizer" };
+
+        const copy = document.getElementById("copy");
+        copy.addEventListener("click", async () => {
+            const url = document.getElementById("repo-url").textContent;
+            try {
+                await navigator.clipboard.writeText(url);
+                copy.textContent = "Copied";
+            } catch {
+                const range = document.createRange();
+                range.selectNodeContents(document.getElementById("repo-url"));
+                const sel = getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                copy.textContent = "Press Ctrl+C";
+            }
+            setTimeout(() => (copy.textContent = "Copy"), 2000);
+        });
+
+        function el(tag, props = {}, children = []) {
+            const node = document.createElement(tag);
+            for (const [k, v] of Object.entries(props)) {
+                if (k === "text") node.textContent = v;
+                else node.setAttribute(k, v);
+            }
+            for (const c of children) node.append(c);
+            return node;
+        }
+
+        function compareVersions(a, b) {
+            const pa = a.split(".").map(Number);
+            const pb = b.split(".").map(Number);
+            for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+                const d = (pa[i] || 0) - (pb[i] || 0);
+                if (d) return d;
+            }
+            return 0;
+        }
+
+        function pluginCard(id, p) {
+            const versions = Object.keys(p.versions || {}).sort(compareVersions).reverse();
+            const latest = (p.channels && p.channels.latest) || versions[0];
+            // Experimental builds (KerimsPluginRepo-Experimental) use the same source folders
+            const stableId = id.replace(/-experimental$/, "");
+            const folder = stableId.includes(".") ? stableId.slice(stableId.indexOf(".") + 1) : stableId;
+
+            const links = el("div", { class: "row links" }, [
+                el("a", { class: "button secondary", href: `${REPO}/tree/main/valenced/${folder}`, text: "Valenced source" }),
+            ]);
+            if (VENCORD_FOLDERS[stableId]) {
+                links.append(el("a", { class: "button secondary", href: `${REPO}/tree/main/vencord/${VENCORD_FOLDERS[stableId]}`, text: "Vencord source" }));
+            }
+
+            const list = el("ul");
+            for (const v of versions) {
+                const info = p.versions[v];
+                const kb = info.size ? ` (${Math.max(1, Math.round(info.size / 1024))} KB)` : "";
+                list.append(el("li", {}, [el("a", { href: info.url, text: `${v}` }), kb]));
+            }
+
+            return el("div", { class: "card" }, [
+                el("div", { class: "row" }, [
+                    el("h3", { text: p.name || id }),
+                    latest ? el("span", { class: "badge", text: `v${latest}` }) : "",
+                ]),
+                el("p", { class: "muted", text: p.description || "" }),
+                links,
+                el("details", {}, [el("summary", { text: "Download a version (ZIP)" }), list]),
+            ]);
+        }
+
+        fetch("index.json", { cache: "no-cache" })
+            .then(r => r.json())
+            .then(index => {
+                const entries = Object.entries(index.plugins || {});
+                if (!entries.length) return;
+                const box = document.getElementById("plugins");
+                box.replaceChildren(...entries.map(([id, p]) => pluginCard(id, p)));
+            })
+            .catch(() => { /* keep the built-in list */ });
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "thatkerimguy.gif-picker-optimizer",
+	"name": "GIFs+",
+	"description": "Faster GIF picker: loads GIFs one by one with low resolution previews and remembers which ones loaded, also across restarts. Precaches your favourites and exports / imports them between accounts.",
+	"author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
+	"icon": "GifIcon",
+	"version": "1.6.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
