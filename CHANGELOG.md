@@ -16,6 +16,8 @@ What's new since the last stable release, for the release notes:
 - Precaching was removed (it rarely helped; GIFs seen before already load first from cache).
 - Many fixes from code reviews: tiles stuck waiting, Tenor still favourites on mobile, reset cache with the plugin off, much faster imports, and saving that batches writes and saves when Discord closes.
 
+**Fixed on 2026-11-17 (desktop settings, reported by the user):** the Patches and Cache summary rows sat above the arrow. Vencord's `ExpandableSection` header is a flex row without vertical centring; `styles.css` centres it inside the plugin's settings sections (measured in a mock: text and arrow centres now match, 2 px off before).
+
 **Changed on 2026-11-17 (1.7.0: easier to read and maintain; no behaviour change, not tried in Discord or on a device):**
 - `tuning.ts` (new, shared): every timing and size the loading and caching code is tuned with, in one place instead of spread over six files.
 - Split by purpose: `klipy.ts` became `klipyLookups.ts` (favourite lookups) and `lowResPages.ts` (search / trending previews, `ApiPreviewCache`); `favoritesBackend.ts` came out of `transfer.ts`; `async.ts` holds `Limiter` and `wait`; `items.ts` holds `GifItem` and the favourite checks both builds had their own copy of. Mobile: `indicator.tsx` out of `tile.tsx`, `patches.tsx` out of `index.tsx`, `favoritesUi.tsx` renamed `alerts.tsx`.

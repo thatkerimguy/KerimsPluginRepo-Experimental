@@ -327,6 +327,21 @@
     gap: 8px;
 }
 
+/* Vencord's expandable card header is a flex row without vertical centring: the summary sat above the arrow */
+.vc-gpo-settings-section .vc-expandable-card-header {
+    align-items: center;
+    gap: 8px;
+}
+
+.vc-gpo-settings-section .vc-expandable-card-header > :not(.vc-expandable-card-icon) {
+    margin: 0;
+    min-width: 0;
+}
+
+.vc-gpo-settings-section .vc-expandable-card-icon {
+    flex-shrink: 0;
+}
+
 .vc-gpo-stats {
     border-collapse: collapse;
     margin-bottom: 8px;
