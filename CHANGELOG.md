@@ -7,7 +7,14 @@ and tests ran.
 
 ## 1.7.0 (2026-11-17, released from the experimental repository)
 
-What's new since the last stable release, for the release notes:
+What's new since the last stable release (1.5.1), for the release notes:
+- Renamed to **GIFs+** (it was GifPickerOptimizer). Desktop settings move over by themselves; on mobile the plugin id stays the same.
+- Favourites export and import (merge or replace), on desktop to a file and on mobile through the clipboard.
+- GIFs that loaded once are remembered across restarts (two weeks), so they come first and without a spinner; broken previews are remembered for a week.
+- Klipy search and trending previews are requested together with Discord's own request instead of after it, and desktop video tiles finish sooner.
+- Desktop: "Auto" for GIFs at the same time (follows your connection, the new default) and for preview size (follows your screen). Mobile: the default preview size is S, which Discord mobile already loads.
+- Off-screen unloading was removed: Discord's GIF lists already unload GIFs that scroll away.
+- Loading indicators follow the theme and animate between states (queued, loading, seen before, failed).
 - Failed previews are retried instead of loading the full size GIF; a tile that keeps failing shows a hollow ring and tries again later.
 - Faster loading: GIFs you've seen before come in many at a time while they load from cache, Klipy favourite lookups no longer hold up other GIFs (and never fall back to the full size file), only Klipy tiles wait for small search versions, slow GIFs can't pile up on bad connections, and desktop opens connections to GIF hosts early.
 - Settings reorganised on both desktop and mobile: sections (Previews, Loading, GIF picker, Favourites, Status and cache), plain titles and descriptions, preview sizes with rough pixel widths, "Auto" says what it's using right now (desktop), settings that don't apply are hidden, Patches and Cache are expandable summaries, and Restore default settings.
