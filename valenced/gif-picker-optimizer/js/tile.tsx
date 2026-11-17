@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * The GIF tile. Discord's own tile is always rendered (it uses hooks), and its
  * Image is swapped for a placeholder while the tile waits for its turn, or for
@@ -17,6 +20,7 @@ import type { Ticket } from "./queue";
 import { useSettings } from "./settingsStore";
 import type { GifItem } from "./state";
 import { drop, failed, forgetLoaded, isCached, isDropped, isFavoriteItem, isPrecached, markLoaded, queue, runtime } from "./state";
+import { lazy } from "./lazy";
 import { replaceInTree } from "./tree";
 import { useVisibleIndex } from "./viewport";
 
@@ -40,14 +44,14 @@ function Indicator({ state, progress }: { state: "queued" | "loading"; progress:
     const themed = useThemedStyles();
     if (state === "queued") {
         return (
-            <View style={styles.overlay} pointerEvents="none">
+            <View style={styles().overlay} pointerEvents="none">
                 <View style={themed.queuedDot} />
             </View>
         );
     }
     const p = progress == null ? null : Math.min(1, Math.max(0, progress));
     return (
-        <View style={styles.overlay} pointerEvents="none">
+        <View style={styles().overlay} pointerEvents="none">
             <ActivityIndicator size="small" color={themed.spinner.color} />
             {p != null && (
                 <>
@@ -266,7 +270,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         // Waiting for its turn or being looked up: an empty frame, no image in memory
         if (phase === "queued" || phase === "resolving") {
             return (
-                <View style={[imgProps.style, styles.frame]}>
+                <View style={[imgProps.style, styles().frame]}>
                     {showProgress && !precached && <Indicator state={phase === "resolving" ? "loading" : "queued"} progress={null} />}
                 </View>
             );
@@ -279,7 +283,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
             props: {
                 ...imgProps,
                 source: { ...imgProps.source, uri: shown },
-                style: [imgProps.style, styles.fill],
+                style: [imgProps.style, styles().fill],
                 onLoad: (...a: any[]) => {
                     imgProps.onLoad?.(...a);
                     if (phase === "loading") done();
@@ -299,7 +303,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         };
 
         return (
-            <View style={[imgProps.style, styles.frame]}>
+            <View style={[imgProps.style, styles().frame]}>
                 {image}
                 {phase === "loading" && showProgress && !precached && <Indicator state="loading" progress={progress} />}
             </View>
@@ -314,7 +318,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     return hit ? result : tree;
 }
 
-const styles = StyleSheet.create({
+const styles = lazy(() => StyleSheet.create({
     frame: {
         overflow: "hidden",
     },
@@ -326,10 +330,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-});
+}));
 
 /** Colours from Discord's theme tokens (resolved for the current theme by the hook) */
-const useThemedStyles = Design.createStyles({
+const themedStyles = lazy(() => Design.createStyles({
     spinner: {
         color: Tokens.default.colors.TEXT_STRONG,
     },
@@ -362,4 +366,8 @@ const useThemedStyles = Design.createStyles({
         textShadowColor: Tokens.default.colors.BACKGROUND_BASE_LOWER,
         textShadowRadius: 3,
     },
-});
+}));
+
+function useThemedStyles() {
+    return themedStyles()();
+}

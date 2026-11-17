@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * The GIF tab: a faster switch to it, and the main page with "favourites only".
  */
@@ -5,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, InteractionManager, StyleSheet, View } from "react-native";
 
+import { lazy } from "./lazy";
 import type { CategoriesPageProps } from "./mainPage";
 import { canShowMainPage, MainPage } from "./mainPage";
 import type { AnyComponent } from "./modules";
@@ -49,7 +53,7 @@ export function DeferredPicker({ props }: { props: Record<string, unknown>; }) {
         };
     }, [ready]);
 
-    if (!ready) return <View style={styles.pickerPlaceholder}><ActivityIndicator /></View>;
+    if (!ready) return <View style={styles().pickerPlaceholder}><ActivityIndicator /></View>;
     return <PickerInner {...props} />;
 }
 
@@ -60,10 +64,10 @@ export function CategoriesPage({ props }: { props: CategoriesPageProps; }) {
     return <MainPage props={props} />;
 }
 
-const styles = StyleSheet.create({
+const styles = lazy(() => StyleSheet.create({
     pickerPlaceholder: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
     },
-});
+}));

@@ -116,6 +116,8 @@ jobs:
               fi
             fi
             (cd template && bun run build "$name")
+            # Fails when the script would throw while Valenced loads it during app boot
+            node src/.github/scripts/preinit-check.cjs "template/plugins/$name/build/js/index.js"
             python3 - "$built_manifest" "template/plugins/$name/build/js/index.js" "$zip" <<'PY'
           import json, sys, zipfile
           manifest, script, out = sys.argv[1:]

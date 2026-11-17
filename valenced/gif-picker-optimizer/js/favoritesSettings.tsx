@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * The Favourites settings section: precache favourites, and export / import
  * them between accounts (through the clipboard).

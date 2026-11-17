@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * Which items the GIF list shows right now, so the load queue starts the ones on
  * screen first.
@@ -12,6 +15,7 @@
 import type { ReactNode } from "react";
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
+import { lazy } from "./lazy";
 import { useSettings } from "./settingsStore";
 import { loaded } from "./state";
 import { replaceInTree } from "./tree";
@@ -56,7 +60,7 @@ class ViewportStore {
     }
 }
 
-const ViewportContext = createContext<ViewportStore | null>(null);
+const viewportContext = lazy(() => createContext<ViewportStore | null>(null));
 
 export interface ResultsListProps {
     [k: string]: unknown;
@@ -89,6 +93,7 @@ export function OptimizedResultsList({ props, render }: { props: ResultsListProp
         return cloneElement(list, { onViewableItemsChanged });
     });
 
+    const ViewportContext = viewportContext();
     return (
         <ViewportContext.Provider value={hit ? store : null}>
             {hit ? result : tree}
@@ -101,7 +106,7 @@ export function OptimizedResultsList({ props, render }: { props: ResultsListProp
  * on every change), for the queue's priority. Returns whether it is right now.
  */
 export function useVisibleIndex(index: number, onVisible: (visible: boolean) => void) {
-    const store = useContext(ViewportContext);
+    const store = useContext(viewportContext());
     const latest = useRef({ index, onVisible });
     latest.current = { index, onVisible };
 

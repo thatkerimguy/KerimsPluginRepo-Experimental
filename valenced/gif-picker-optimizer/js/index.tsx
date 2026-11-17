@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * GIFs+ for Valenced (plugin id thatkerimguy.gif-picker-optimizer)
  *

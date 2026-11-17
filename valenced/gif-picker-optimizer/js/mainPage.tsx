@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * The picker's main page with "favourites only": the Favorites precache bar
  * and the Favorites tile, without the trending categories.
@@ -7,6 +10,7 @@ import { Design } from "@valenced/discord/design";
 import { StyleSheet, View } from "react-native";
 
 import { favoriteItems } from "./favorites";
+import { lazy } from "./lazy";
 import { PrecacheButton, precacheStats, usePrecacheUpdates } from "./favoritesUi";
 import { pickerModules } from "./modules";
 import { runtime } from "./state";
@@ -33,8 +37,8 @@ function FavoritesBar() {
     const items = favoriteItems();
     if (!items.length || !runtime.precache) return null;
     return (
-        <View style={styles.bar}>
-            <View style={styles.flex}>
+        <View style={styles().bar}>
+            <View style={styles().flex}>
                 <Text variant="text-sm/semibold" color="text-strong">Favorites</Text>
                 <Text variant="text-xs/medium" color="text-muted">{precacheStats(items)}</Text>
             </View>
@@ -54,18 +58,18 @@ export function MainPage({ props }: { props: CategoriesPageProps; }) {
 
     if (!props.favoritesCategory) {
         return (
-            <View style={styles.hint}>
+            <View style={styles().hint}>
                 <Text variant="text-md/medium" color="text-muted">Search for GIFs above.</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.flex}>
+        <View style={styles().flex}>
             <FavoritesBar />
             <View style={{ height: rowHeight(columns), flexDirection: "row", gap: gutter() }}>
                 <CategoryView item={props.favoritesCategory} onSelectCategory={props.onSelectCategory} />
-                {Array.from({ length: columns - 1 }, (_, c) => <View key={c} style={styles.flex} />)}
+                {Array.from({ length: columns - 1 }, (_, c) => <View key={c} style={styles().flex} />)}
             </View>
         </View>
     );
@@ -76,7 +80,7 @@ export function canShowMainPage(props: CategoriesPageProps) {
     return typeof pickerModules.categoryView?.default === "function" && typeof props.onSelectCategory === "function";
 }
 
-const styles = StyleSheet.create({
+const styles = lazy(() => StyleSheet.create({
     flex: {
         flex: 1,
     },
@@ -92,4 +96,4 @@ const styles = StyleSheet.create({
         paddingTop: 48,
         paddingHorizontal: 24,
     },
-});
+}));

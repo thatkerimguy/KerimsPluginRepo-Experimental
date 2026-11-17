@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 import Page from "@valenced/components/Page";
 import { Design } from "@valenced/discord/design";
 import { useEffect, useState } from "react";

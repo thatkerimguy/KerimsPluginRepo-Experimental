@@ -1,3 +1,6 @@
+/** @jsxRuntime classic */
+/** @jsx valenced.react.React.createElement */
+/** @jsxFrag valenced.react.React.Fragment */
 /*
  * Small pieces shared by the picker and settings: the precache button and
  * its stats, toasts and the confirm alert.
