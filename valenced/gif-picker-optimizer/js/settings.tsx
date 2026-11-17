@@ -63,6 +63,28 @@ function CacheSection() {
     );
 }
 
+/** Which of the plugin's hooks into Discord work (refreshed every 2 seconds while open) */
+function PatchesSection() {
+    const { TableRow, TableRowGroup } = Design;
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const t = setInterval(() => setTick(n => n + 1), 2000);
+        return () => clearInterval(t);
+    }, []);
+
+    const patches = cacheControl.patches?.() ?? [];
+    return (
+        <TableRowGroup
+            title="Patches"
+            description="One that stays “not seen yet” after doing what it says means Discord changed its code: that part falls back to Discord's own behaviour."
+        >
+            {patches.length
+                ? patches.map(p => <TableRow key={p.label} label={p.label} subLabel={p.value} />)
+                : <TableRow label="Enable the plugin to see its patches" />}
+        </TableRowGroup>
+    );
+}
+
 export default function SettingsComponent({ api: { jsonStorage: storage } }: Props) {
     const { Stack, TableRadioGroup, TableRadioRow, TableRowGroup, TableSwitchRow } = Design;
     const s: Settings = { ...DefaultSettings, ...storage.use() };
@@ -156,6 +178,8 @@ export default function SettingsComponent({ api: { jsonStorage: storage } }: Pro
                     </TableRadioGroup>
 
                     <FavoritesSection />
+
+                    <PatchesSection />
 
                     <CacheSection />
                 </Stack>

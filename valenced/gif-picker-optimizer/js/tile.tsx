@@ -9,10 +9,13 @@
 
 import { Tokens } from "@valenced/discord/common/tokens";
 import { Design } from "@valenced/discord/design";
+import type { ReactElement, ReactNode } from "react";
 import * as React from "react";
 import { isValidElement, useEffect, useRef, useState } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
+import { patchWorks } from "./diagnostics";
 import { normalizeUrl } from "./lowres";
 import { isNativeCached } from "./nativeCache";
 import { lookupFor, pickSrc } from "./previews";
@@ -21,8 +24,25 @@ import type { GifItem } from "./state";
 import { isFavoriteItem, tileEnv } from "./state";
 import { useTileLoader } from "./tileLoader";
 import { lazy } from "./lazy";
-import { replaceInTree, treeHas } from "./tree";
+import { findInTree, replaceAt } from "./tree";
 import { useVisibleIndex } from "./viewport";
+
+/** What the plugin reads from and sets on the Image in Discord's tile */
+interface ImageProps {
+    source?: { uri?: string; [k: string]: unknown; };
+    style?: StyleProp<ViewStyle>;
+    onLoad?(...args: unknown[]): void;
+    onError?(...args: unknown[]): void;
+    onProgress?(e: unknown): void;
+}
+type ImageElement = ReactElement<ImageProps>;
+
+/** RN's onProgress event: `{ nativeEvent: { loaded, total } }` (or the values directly) */
+interface ProgressEvent {
+    loaded?: number;
+    total?: number;
+    nativeEvent?: { loaded?: number; total?: number; };
+}
 
 export interface ItemProps {
     item: GifItem;
@@ -254,7 +274,7 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
     );
 }
 
-export function OptimizedItem({ props, render }: { props: ItemProps; render: (p: ItemProps) => any; }) {
+export function OptimizedItem({ props, render }: { props: ItemProps; render: (p: ItemProps) => ReactNode; }) {
     const { item, index } = props;
     const { loadTimeout, showProgress, stillFavorites } = useSettings();
 
@@ -264,9 +284,12 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     const still = stillFavorites && isFavoriteItem(item);
 
     const original = normalizeUrl(item.src);
-    const isImage = (n: any) => isValidElement(n) && normalizeUrl((n.props as any)?.source?.uri ?? "") === original;
-    // Unknown tree shape: leave Discord's tile alone and don't hold up the queue
-    const hasImage = treeHas(tree, isImage);
+    const isImage = (n: unknown): n is ImageElement =>
+        isValidElement(n) && normalizeUrl((n.props as ImageProps | null)?.source?.uri ?? "") === original;
+    // Found once per render; the swap below only walks this path. No Image (unknown tree
+    // shape): leave Discord's tile alone and don't hold up the queue.
+    const imagePath = findInTree(tree, isImage);
+    const hasImage = imagePath != null;
 
     // Tiles that scroll away are unmounted (and recycled) by Discord's FlashList
     const { phase, chosen, precached, progress, setVisible, done, error, reportProgress } = useTileLoader(
@@ -287,9 +310,10 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
         },
     );
     useVisibleIndex(index, setVisible);
-    if (!hasImage) return tree;
+    if (!imagePath) return tree;
+    patchWorks("tiles");
 
-    const [result] = replaceInTree(tree, isImage, (img: any) => {
+    return replaceAt<ImageElement>(tree, imagePath, img => {
         const imgProps = img.props;
 
         // One Indicator at the same place in the frame from queued to loaded, so it animates between states
@@ -317,19 +341,19 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
                 ...imgProps,
                 source: { ...imgProps.source, uri: shown },
                 style: [imgProps.style, styles().fill],
-                onLoad: (...a: any[]) => {
+                onLoad: (...a: unknown[]) => {
                     imgProps.onLoad?.(...a);
                     done();
                 },
-                onError: (...a: any[]) => {
+                onError: (...a: unknown[]) => {
                     imgProps.onError?.(...a);
                     // Also when shown from cache ("done"): the URL may not load any more
                     if (phase === "loading" || phase === "done") error();
                 },
-                onProgress: (e: any) => {
+                onProgress: (e: unknown) => {
                     imgProps.onProgress?.(e);
-                    const ev = e?.nativeEvent ?? e;
-                    if (phase === "loading") reportProgress(ev?.loaded, ev?.total);
+                    const ev = (e as ProgressEvent | null)?.nativeEvent ?? (e as ProgressEvent | null);
+                    if (phase === "loading") reportProgress(ev?.loaded ?? 0, ev?.total ?? 0);
                 },
             },
         };
@@ -340,9 +364,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
                 {indicator}
             </View>
         );
-    });
-
-    return result;
+    }) as ReactNode;
 }
 
 const styles = lazy(() => StyleSheet.create({

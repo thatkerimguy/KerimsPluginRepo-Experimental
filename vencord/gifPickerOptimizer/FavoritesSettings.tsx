@@ -15,7 +15,7 @@ import { favoriteItems, favoritesBackend } from "./favorites";
 import { usePrecacheUpdates } from "./hooks";
 import { PrecacheButton, precacheStats } from "./precacheUi";
 import { cl, runtime } from "./state";
-import { exportFavorites, importFavorites, type ImportMode } from "./transfer";
+import { exportFavorites, importFavorites, type ImportMode, importSummary, otherSitesWarning, type ParsedExport, parseExport } from "./transfer";
 
 async function readJsonFile(): Promise<string | null> {
     if (IS_DISCORD_DESKTOP) {
@@ -46,20 +46,31 @@ async function importFromFile(mode: ImportMode) {
     const text = await readJsonFile().catch(() => null);
     if (text == null) return;
 
+    const fail = (e: unknown) => showToast({ text: e instanceof Error ? e.message : String(e), variant: "critical" });
+    let file: ParsedExport;
+    try {
+        file = parseExport(text);
+    } catch (e) {
+        return fail(e);
+    }
+
     const run = async () => {
         try {
-            const { added, total } = await importFavorites(favoritesBackend, text, mode);
-            showToast({ text: `Imported ${added} new GIF${added === 1 ? "" : "s"}. ${total} favourites now.`, variant: "success" });
+            showToast({ text: importSummary(await importFavorites(favoritesBackend, file, mode)), variant: "success" });
         } catch (e) {
-            showToast({ text: e instanceof Error ? e.message : String(e), variant: "critical" });
+            fail(e);
         }
     };
 
-    if (mode === "merge") return run();
+    const warnings = [
+        mode === "overwrite" && "Your favourite GIFs will be replaced with the ones in the file. Favourites that aren't in the file are removed from this account. This can't be undone, so export your favourites first if you might want them back.",
+        otherSitesWarning(file),
+    ].filter(Boolean);
+    if (!warnings.length) return run();
     Alerts.show({
-        title: "Replace your favourites?",
-        body: "Your favourite GIFs will be replaced with the ones in the file. Favourites that aren't in the file are removed from this account. This can't be undone, so export your favourites first if you might want them back.",
-        confirmText: "Replace",
+        title: mode === "overwrite" ? "Replace your favourites?" : "Import GIFs from other sites?",
+        body: warnings.join("\n\n"),
+        confirmText: mode === "overwrite" ? "Replace" : "Import",
         cancelText: "Cancel",
         onConfirm: () => void run(),
     });

@@ -6,6 +6,7 @@
 
 import { Button } from "@components/Button";
 
+import { patchWorks } from "./diagnostics";
 import { usePrecacheUpdates } from "./hooks";
 import { favoriteUrls, precacheUrl } from "./previews";
 import { cl, runtime } from "./state";
@@ -48,5 +49,6 @@ export function precacheStats(items: GifItem[]) {
 
 /** Precache button in the Favorites page header (called from a patch) */
 export function renderPrecacheButton(label: string, favorites: GifItem[] | undefined) {
+    patchWorks("favoritesHeader");
     return <PrecacheButton label={label} items={favorites ?? []} />;
 }

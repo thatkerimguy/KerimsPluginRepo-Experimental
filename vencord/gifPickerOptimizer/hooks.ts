@@ -4,11 +4,10 @@
 
 import { useEffect, useState } from "@webpack/common";
 
+import { usePrecacheUpdates as usePrecacheUpdatesWith } from "./precache";
 import { runtime } from "./state";
 
-/** Re-renders when precaching progresses */
+/** Re-renders when precaching progresses (hooks read at render time, see CLAUDE.md) */
 export function usePrecacheUpdates() {
-    const [, setTick] = useState(0);
-    const { precache } = runtime;
-    useEffect(() => precache?.subscribe(() => setTick(n => n + 1)), [precache]);
+    usePrecacheUpdatesWith({ useState, useEffect }, runtime.precache);
 }

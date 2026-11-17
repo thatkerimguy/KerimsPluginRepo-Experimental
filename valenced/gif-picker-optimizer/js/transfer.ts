@@ -40,6 +40,47 @@ export interface FavoritesBackend {
     bytes?(gifs: FavoriteMap): number | undefined;
 }
 
+/** Discord's frecency settings actions (favourites are saved and synced through these) */
+export interface FrecencyActions {
+    getCurrentValue?(): { favoriteGifs?: { gifs?: FavoriteMap; }; } | undefined;
+    updateAsync?(key: "favoriteGifs", updater: (value: { gifs?: FavoriteMap; }) => unknown, delay: number): Promise<unknown>;
+    /** The FrecencyUserSettings protobuf type (for the exact favourites size) */
+    ProtoClass?: unknown;
+}
+
+/** UserSettingsDelay.INFREQUENT_USER_ACTION: save right away, like the favourite button */
+const SAVE_DELAY = 0;
+
+/**
+ * Discord's favourites through its frecency settings actions (found differently
+ * by each build). `onMissing` is told when they can't be reached yet.
+ */
+export function createFavoritesBackend(actions: () => FrecencyActions | undefined, onMissing?: () => void): FavoritesBackend {
+    return {
+        read: () => actions()?.getCurrentValue?.()?.favoriteGifs?.gifs,
+        async update(fn) {
+            const frecency = actions();
+            if (typeof frecency?.updateAsync !== "function") {
+                onMissing?.();
+                return false;
+            }
+            let applied = false;
+            // updateAsync awaits loading, then calls the updater with a copy of the current
+            // favourites, and resolves after it ran (checked in Discord's desktop code, 2026-11;
+            // assumed the same on mobile)
+            await frecency.updateAsync("favoriteGifs", favorites => {
+                favorites.gifs ??= {};
+                // Returning false cancels the update
+                if (fn(favorites.gifs) === false) return false;
+                applied = true;
+            }, SAVE_DELAY);
+            return applied;
+        },
+        // FavoriteGIFs.toBinary(...).length, the check Discord's add favourite does
+        bytes: gifs => protoBytes(actions()?.ProtoClass, gifs),
+    };
+}
+
 /** A protobuf-ts message type (only what's used here) */
 interface ProtoType {
     fields?: { name?: string; localName?: string; kind?: string; T?: () => unknown; }[];
@@ -133,11 +174,37 @@ export function formatExport(file: ExportFile): string {
     ].join("\n");
 }
 
-const isHttpUrl = (v: unknown): v is string => typeof v === "string" && /^(https?:)?\/\//i.test(v);
-const optionalNumber = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : undefined);
+/** https (or protocol relative, which is https in Discord) only: plain http would load or send unencrypted */
+const isHttpsUrl = (v: unknown): v is string => typeof v === "string" && /^(https:)?\/\/[^/?#\s]+/i.test(v);
+/** Largest value Discord's protobuf takes for a size (uint32) */
+const MAX_SIZE = 0xffff_ffff;
+const optionalSize = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), MAX_SIZE) : undefined);
+/** GIFType: 1 image, 2 video. Anything else would fail Discord's protobuf encoding. */
+const optionalFormat = (v: unknown) => (v === 1 || v === 2 ? v : undefined);
+
+/**
+ * Sites Discord's own favourites come from (the GIF pickers, Discord's CDN and
+ * proxies, and the usual embed hosts). Any other site in an import is shown to
+ * the user before importing: a file from someone else could hold tiles that load
+ * from a tracking host, or send a different link than the GIF they show.
+ */
+const KNOWN_SITES = /(^|\.)(discord\.com|discordapp\.com|discordapp\.net|tenor\.com|tenor\.co|giphy\.com|klipy\.com|twimg\.com|twitter\.com|x\.com|fxtwitter\.com|vxtwitter\.com|fixupx\.com|imgur\.com)$/i;
+
+/** The host of an https URL, lowercased ("" when there is none) */
+export function urlHost(url: string) {
+    return /^(?:https:)?\/\/([^/?#:\s]+)/i.exec(url)?.[1]?.toLowerCase() ?? "";
+}
+
+/** An export read from text, with what the import should show the user first */
+export interface ParsedExport extends ExportFile {
+    /** Entries left out: not https, or not a GIF at all */
+    skipped: number;
+    /** Sites outside KNOWN_SITES that GIFs load from or link to, most used first */
+    otherSites: string[];
+}
 
 /** Reads an exported file. Throws an Error with a readable message when it isn't one. */
-export function parseExport(text: string): ExportFile {
+export function parseExport(text: string): ParsedExport {
     let data: any;
     try {
         // trim() also drops the byte order mark some editors and clipboards add
@@ -152,11 +219,34 @@ export function parseExport(text: string): ExportFile {
         throw new Error("This export was made by a newer version of GIFs+. Update the plugin first.");
     }
     const gifs: ExportedGif[] = [];
+    const other = new Map<string, number>();
+    let skipped = 0;
     for (const g of data.gifs) {
-        if (!isHttpUrl(g?.url) || !isHttpUrl(g?.src)) continue;
-        gifs.push({ url: g.url, src: g.src, width: optionalNumber(g.width), height: optionalNumber(g.height), format: optionalNumber(g.format) });
+        if (!isHttpsUrl(g?.url) || !isHttpsUrl(g?.src)) {
+            skipped++;
+            continue;
+        }
+        gifs.push({ url: g.url, src: g.src, width: optionalSize(g.width), height: optionalSize(g.height), format: optionalFormat(g.format) });
+        for (const host of new Set([urlHost(g.url), urlHost(g.src)])) {
+            if (!KNOWN_SITES.test(host)) other.set(host, (other.get(host) ?? 0) + 1);
+        }
     }
-    return { format: EXPORT_FORMAT, version: EXPORT_VERSION, gifs };
+    const otherSites = [...other].sort((a, b) => b[1] - a[1]).map(([host]) => host);
+    return { format: EXPORT_FORMAT, version: EXPORT_VERSION, gifs, skipped, otherSites };
+}
+
+/**
+ * The warning to confirm before importing GIFs from other sites, or null when
+ * every GIF comes from a known one.
+ */
+export function otherSitesWarning(file: ParsedExport): string | null {
+    const { otherSites } = file;
+    if (!otherSites.length) return null;
+    const shown = otherSites.slice(0, 5).join(", ");
+    const more = otherSites.length > 5 ? ` and ${otherSites.length - 5} more` : "";
+    return `Some GIFs in this file load from or link to other sites: ${shown}${more}. `
+        + "A file from someone else could use that to see when you open the GIF picker, or to send a different link than the GIF shows. "
+        + "Only import files you made yourself or trust.";
 }
 
 /**
@@ -199,16 +289,23 @@ export interface ImportResult {
     added: number;
     /** Favourites after the import */
     total: number;
+    /** Entries in the file that were left out (not https, not a GIF) */
+    skipped: number;
+}
+
+/** "Imported 3 new GIFs (1 skipped). 120 favourites now." */
+export function importSummary({ added, total, skipped }: ImportResult) {
+    const gifs = (n: number) => `${n} GIF${n === 1 ? "" : "s"}`;
+    return `Imported ${gifs(added)}${skipped ? ` (${skipped} skipped)` : ""}. ${gifs(total)} in favourites now.`;
 }
 
 /**
- * Imports an export into favourites. The import is applied inside Discord's update,
+ * Imports a parsed export into favourites (parse it with `parseExport` first and
+ * confirm `otherSitesWarning`). The import is applied inside Discord's update,
  * to the favourites as they are then, so a favourite that syncs in between isn't
  * lost. Rejects with a readable message on failure; nothing is changed then.
  */
-export async function importFavorites(backend: FavoritesBackend, text: string, mode: ImportMode): Promise<ImportResult> {
-    // Thrown before anything is touched
-    const file = parseExport(text);
+export async function importFavorites(backend: FavoritesBackend, file: ParsedExport, mode: ImportMode): Promise<ImportResult> {
     if (!backend.read()) throw new Error("Your favourites haven't loaded yet. Open the GIF picker once and try again.");
 
     // Set by the update callback (an object, so TypeScript doesn't narrow it away)
@@ -222,7 +319,7 @@ export async function importFavorites(backend: FavoritesBackend, text: string, m
             out.tooBig = true;
             return false;
         }
-        out.result = { added, total: Object.keys(gifs).length };
+        out.result = { added, total: Object.keys(gifs).length, skipped: file.skipped };
     });
     if (out.tooBig) throw new Error("That's more GIFs than Discord allows in favourites. Nothing was imported.");
     if (!applied || !out.result) throw new Error("Discord didn't apply the import. Nothing was imported.");

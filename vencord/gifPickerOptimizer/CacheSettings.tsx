@@ -11,6 +11,7 @@ import { Paragraph } from "@components/Paragraph";
 import { useEffect, useState } from "@webpack/common";
 
 import { formatBytes } from "./cache";
+import { describePatch, patchStatuses } from "./diagnostics";
 import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, PRECACHE_STORE_KEY, runtime, seen, SEEN_STORE_KEY } from "./state";
 import { FRAME_BUDGET_BYTES, frames } from "./stillFrames";
 
@@ -72,6 +73,20 @@ export function CacheSettings() {
                     ))}
                 </tbody>
             </table>
+            <Heading>Patches</Heading>
+            <table className={cl("cache-stats")}>
+                <tbody>
+                    {patchStatuses().map(p => (
+                        <tr key={p.label}>
+                            <td><Paragraph>{p.label}</Paragraph></td>
+                            <td><Paragraph>{describePatch(p)}</Paragraph></td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <Paragraph className={cl("cache-note")}>
+                A patch that stays "not seen yet" after doing what it says (or a Vencord patch warning in the console) means Discord changed its code: that part falls back to Discord's own behaviour.
+            </Paragraph>
             <Button
                 variant="dangerSecondary"
                 size="small"

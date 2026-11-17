@@ -1,0 +1,16 @@
+{
+  "name": "gifs-plus-tests",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the shared GIFs+ code. Run with `npm test` (Node 22.18 or newer).",
+  "scripts": {
+    "test": "node --import ./register.mjs --experimental-transform-types --no-warnings --test \"unit/*.test.ts\"",
+    "test:patches": "node --import ./register.mjs --experimental-transform-types --no-warnings --test \"patches/*.test.ts\""
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "react": "19.2.0",
+    "react-test-renderer": "19.2.0",
+    "typescript": "^5.9.3"
+  }
+}

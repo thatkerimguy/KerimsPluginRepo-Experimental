@@ -19,17 +19,19 @@ import { migratePluginSettings } from "@api/Settings";
 import definePlugin from "@utils/types";
 import { LocaleStore, RestAPI } from "@webpack/common";
 
+import { clearPatches, expectPatch } from "./diagnostics";
 import { precacheOptions } from "./favorites";
 import { featured, mountCategories, needsCategories } from "./favoritesOnly";
 import { FavoritesSettings } from "./FavoritesSettings";
 import { KlipyResolver } from "./klipy";
 import { Precacher } from "./precache";
+import { patches } from "./patches";
 import { renderPrecacheButton } from "./precacheUi";
 import { createLowResPages, lowResStarted } from "./previews";
 import type { UrlListStore } from "./saved";
 import { SequentialResult } from "./SequentialResult";
 import { applyQueueSettings, onConnectionChange, settings } from "./settings";
-import { failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
+import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
 import { frames } from "./stillFrames";
 import managedStyle from "./styles.css?managed";
 import type { GifItem } from "./types";
@@ -59,58 +61,7 @@ export default definePlugin({
     settings,
     managedStyle,
 
-    patches: [
-        {
-            // GIF picker results list (masonry of GIF tiles)
-            find: "renderEmptyFavorite",
-            replacement: {
-                match: /(\(0,\i\.jsx\)\()(\i),\{(?=item:(\i),index:\i,format:\3\.format,src:\3\.src)/,
-                replace: "$1$self.SequentialResult,{Result:$2,resultType:this?.props?.resultType,",
-            },
-        },
-        {
-            // GIF picker actions: search (`y`, debounced 250 ms) and trending GIFs (`Z4`).
-            // The low resolution request for Klipy previews starts together with Discord's.
-            // Without this patch, it's sent once Discord's results arrive (lookupLowRes).
-            find: '"GIF_PICKER_QUERY_SUCCESS",query:',
-            replacement: [
-                {
-                    match: /(?=\i\.\i\.get\(\{url:\i\.\i\.GIFS_SEARCH,query:\{q:(\i),media_format:[^}]*?limit:(\i)\})/,
-                    replace: "$self.lowResStarted($1,$2),",
-                },
-                {
-                    match: /(?=\i\.\i\.get\(\{url:\i\.\i\.GIFS_TRENDING_GIFS,query:\{media_format:[^}]*?limit:(\i)\})/,
-                    replace: "$self.lowResStarted(void 0,$1),",
-                },
-            ],
-        },
-        {
-            // GIF picker main page (categories grid) and the page around it
-            find: "hideFavoritesTile:",
-            replacement: [
-                {
-                    // Don't fetch trending categories on mount ("Favourites only")
-                    match: /0===this\.props\.trendingCategories\.length&&\(0,(\i\.\i)\)\(\)/,
-                    replace: "$self.mountCategories(this.props.trendingCategories,$1)",
-                },
-                {
-                    // The tiles: [favorites, ...trendingCategories]
-                    match: /(this\.memoizedData\(this\.state\.favoritesTile,)this\.props\.trendingCategories/,
-                    replace: "$1$self.featured(this.props.trendingCategories)",
-                },
-                {
-                    // Shows a loading skeleton while there are no trending categories
-                    match: /(trendingCategories:(\i)\}=this\.props;return )0===\2\.length/,
-                    replace: "$1$self.needsCategories($2)",
-                },
-                {
-                    // Precache button in the Favorites page header
-                    match: /(case \i\.\i\.FAVORITES:return\(0,\i\.jsxs\)\("div",\{className:\i\.\i,children:\[)/,
-                    replace: "$1$self.renderPrecacheButton(\"Favorites\",this.props.favorites),",
-                },
-            ],
-        },
-    ],
+    patches,
 
     flux: {
         GIF_PICKER_QUERY_SUCCESS(event: { query?: string; items?: GifItem[]; }) {
@@ -127,6 +78,11 @@ export default definePlugin({
     renderPrecacheButton,
 
     start() {
+        // Patches are seen working when the code they call runs (diagnostics.ts, shown in settings)
+        expectPatch("results", "GIF tiles (one by one, previews)", "open the GIF picker");
+        expectPatch("searchActions", "Early low resolution requests", "search for GIFs or open Trending");
+        expectPatch("categories", "Main page categories (Favourites only)", "open the GIF picker's main page");
+        expectPatch("favoritesHeader", "Precache button in Favorites", "open the Favorites category");
         loaded.resize(settings.store.cacheSize);
         seen.attach(savedList(SEEN_STORE_KEY));
         failed.attach(savedList(FAILED_STORE_KEY));
@@ -165,7 +121,10 @@ export default definePlugin({
         runtime.lowRes?.clear();
         runtime.lowRes = undefined;
         disconnectWatchers();
+        clearPatches();
         loaded.clear();
+        // Like the Valenced build: the patches stay applied until Discord reloads, so drop what was cached
+        apiPreviews.clear();
         frames.clear();
     },
 });

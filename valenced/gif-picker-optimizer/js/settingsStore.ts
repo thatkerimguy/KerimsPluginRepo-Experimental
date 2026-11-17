@@ -45,6 +45,8 @@ export interface CacheStat {
 /** Set by the plugin while it runs, so settings can show stats and reset the caches */
 export const cacheControl: {
     stats?: () => CacheStat[];
+    /** Which patches work (diagnostics.ts) */
+    patches?: () => CacheStat[];
     reset?: () => void;
 } = {};
 

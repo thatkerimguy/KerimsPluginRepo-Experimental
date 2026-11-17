@@ -3,6 +3,7 @@
  */
 
 import { formatBytes } from "./cache";
+import { describePatch, patchStatuses } from "./diagnostics";
 import type { CacheStat } from "./settingsStore";
 import { apiPreviews, failed, loaded, runtime, seen } from "./state";
 
@@ -35,4 +36,9 @@ export function resetCaches() {
     runtime.klipy?.clear();
     runtime.tenorPages?.clear();
     runtime.precache?.clear();
+}
+
+/** One line per patch: whether it's seen working (diagnostics.ts) */
+export function patchStats(): CacheStat[] {
+    return patchStatuses().map(p => ({ label: p.label, value: describePatch(p) }));
 }

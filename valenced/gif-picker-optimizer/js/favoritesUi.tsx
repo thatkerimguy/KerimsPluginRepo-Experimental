@@ -8,17 +8,17 @@
 
 import { AlertActionCreators, ToastActionCreators } from "@valenced/discord/actions";
 import { Design } from "@valenced/discord/design";
-import { useEffect, useState } from "react";
+import * as React from "react";
 
+import { usePrecacheUpdates as usePrecacheUpdatesWith } from "./precache";
 import { favoriteUrls, precacheUrl } from "./previews";
 import type { GifItem } from "./state";
 import { runtime } from "./state";
 
 /** Re-renders when precaching progresses */
 export function usePrecacheUpdates() {
-    const [, setTick] = useState(0);
-    const { precache } = runtime;
-    useEffect(() => precache?.subscribe(() => setTick(n => n + 1)), [precache]);
+    // React itself, not `{ useState, ... }`: the build rewrites React names even as object keys
+    usePrecacheUpdatesWith(React, runtime.precache);
 }
 
 /** "12 GIFs, 8 precached" */

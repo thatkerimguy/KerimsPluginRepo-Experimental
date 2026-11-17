@@ -10,35 +10,15 @@ import { normalizeUrl } from "./lowres";
 import type { PrecacheOptions } from "./precache";
 import type { GifItem } from "./state";
 import { PLUGIN_ID, runtime } from "./state";
-import type { FavoriteMap, FavoritesBackend } from "./transfer";
-import { protoBytes } from "./transfer";
+import type { FavoriteMap } from "./transfer";
+import { createFavoritesBackend } from "./transfer";
 
-/** UserSettingsDelay.INFREQUENT_USER_ACTION: save right away, like the favourite button */
-const SAVE_DELAY = 0;
 const DOWNLOAD_TIMEOUT_MS = 20_000;
 
-export const favoritesBackend: FavoritesBackend = {
-    read: () => runtime.frecency?.getCurrentValue()?.favoriteGifs?.gifs as FavoriteMap | undefined,
-    async update(fn) {
-        const { frecency } = runtime;
-        if (!frecency) {
-            runtime.logger?.warn?.("Discord's favourites aren't loaded yet, nothing was changed");
-            return false;
-        }
-        let applied = false;
-        // updateAsync calls the updater with a copy of the current favourites and
-        // resolves after it ran (Discord's desktop code; assumed the same on mobile)
-        await frecency.updateAsync("favoriteGifs", (favorites: { gifs?: FavoriteMap; }) => {
-            favorites.gifs ??= {};
-            // Returning false cancels the update
-            if (fn(favorites.gifs) === false) return false;
-            applied = true;
-        }, SAVE_DELAY);
-        return applied;
-    },
-    // FavoriteGIFs.toBinary(...).length, the check Discord's add favourite does
-    bytes: gifs => protoBytes(runtime.frecency?.ProtoClass, gifs),
-};
+export const favoritesBackend = createFavoritesBackend(
+    () => runtime.frecency,
+    () => runtime.logger?.warn?.("Discord's favourites aren't loaded yet, nothing was changed"),
+);
 
 function jsonFile<T extends object>(file: string, fallback: T) {
     return getJsonStorage<T>(pluginStoragePathFor(PLUGIN_ID, file), { default: fallback });

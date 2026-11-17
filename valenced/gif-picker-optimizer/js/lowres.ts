@@ -313,7 +313,7 @@ export function lowResMediaFormat(selectedFormat: string, quality: Quality): str
 
 // Discord mobile turns Tenor favourites into `<tenor page URL>.gif`, which redirects
 // to the full size GIF on media.tenor.com
-const TENOR_PAGE_GIF_RE = /^https?:\/\/(?:www\.)?tenor\.com\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?view\/[^?#]+\.gif(?:[?#].*)?$/i;
+const TENOR_PAGE_GIF_RE = /^https:\/\/(?:www\.)?tenor\.com\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?view\/[^?#]+\.gif(?:[?#].*)?$/i;
 
 export function isTenorPageGif(url: string): boolean {
     return TENOR_PAGE_GIF_RE.test(normalizeUrl(url));

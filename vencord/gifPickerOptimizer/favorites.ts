@@ -11,34 +11,12 @@ import { UserSettingsActionCreators } from "@webpack/common";
 import { isVideoUrl } from "./lowres";
 import type { PrecacheOptions } from "./precache";
 import { PRECACHE_STORE_KEY } from "./state";
-import { type FavoriteMap, type FavoritesBackend, protoBytes } from "./transfer";
+import { createFavoritesBackend, type FavoriteMap } from "./transfer";
 import type { GifItem } from "./types";
 
-/** UserSettingsDelay.INFREQUENT_USER_ACTION: save right away, like the star button */
-const SAVE_DELAY = 0;
 const DOWNLOAD_TIMEOUT_MS = 20_000;
 
-const frecency = () => UserSettingsActionCreators.FrecencyUserSettingsActionCreators;
-
-export const favoritesBackend: FavoritesBackend = {
-    read: () => frecency()?.getCurrentValue?.()?.favoriteGifs?.gifs,
-    async update(fn) {
-        const actions = frecency();
-        if (typeof actions?.updateAsync !== "function") return false;
-        let applied = false;
-        // updateAsync awaits loading, then calls the updater with a copy of the current
-        // favourites, and resolves after it ran (checked in Discord's code, 2026-11)
-        await actions.updateAsync("favoriteGifs", (favorites: { gifs?: FavoriteMap; }) => {
-            favorites.gifs ??= {};
-            // Returning false cancels the update
-            if (fn(favorites.gifs) === false) return false;
-            applied = true;
-        }, SAVE_DELAY);
-        return applied;
-    },
-    // FavoriteGIFs.toBinary(...).length, the check Discord's add favourite does
-    bytes: gifs => protoBytes(frecency()?.ProtoClass, gifs),
-};
+export const favoritesBackend = createFavoritesBackend(() => UserSettingsActionCreators.FrecencyUserSettingsActionCreators);
 
 let lastItems: { map: FavoriteMap | undefined; count: number; items: GifItem[]; } | null = null;
 

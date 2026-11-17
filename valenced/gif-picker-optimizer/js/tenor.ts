@@ -10,7 +10,6 @@ import { LruCache } from "./cache";
 import { wait } from "./klipy";
 import { isTenorMediaUrl, normalizeUrl } from "./lowres";
 import { Persisted } from "./persist";
-import { runtime } from "./state";
 
 const MAX_ENTRIES = 5000;
 const MAX_FAILED_ENTRIES = 500;
@@ -33,7 +32,7 @@ export class TenorPageResolver {
     private failedAt = new LruCache<string, number>(MAX_FAILED_ENTRIES);
     private saved: Persisted<Record<string, string>>;
 
-    constructor(store?: TenorStore) {
+    constructor(store?: TenorStore, private onError?: (message: string, e: unknown) => void) {
         this.saved = new Persisted({
             load: () => store?.load(),
             save: entries => store?.save(entries),
@@ -87,7 +86,7 @@ export class TenorPageResolver {
             this.saved.changed();
         } catch (e) {
             this.failedAt.set(pageUrl, Date.now());
-            runtime.logger?.warn?.("Couldn't resolve Tenor favourite", e);
+            this.onError?.("Couldn't resolve Tenor favourite", e);
         }
     }
 

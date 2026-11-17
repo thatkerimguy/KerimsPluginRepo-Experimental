@@ -14,7 +14,8 @@ import { favoriteItems, favoritesBackend } from "./favorites";
 import { openConfirmAlert, PrecacheButton, precacheStats, toast, usePrecacheUpdates } from "./favoritesUi";
 import { runtime } from "./state";
 import type { ImportMode } from "./transfer";
-import { exportFavorites, importFavorites } from "./transfer";
+import type { ParsedExport } from "./transfer";
+import { exportFavorites, importFavorites, importSummary, otherSitesWarning, parseExport } from "./transfer";
 
 const plural = (n: number) => `${n} GIF${n === 1 ? "" : "s"}`;
 
@@ -41,25 +42,36 @@ async function importFromClipboard(mode: ImportMode) {
         toast("Copy a GIFs+ export first, then import it.");
         return;
     }
+    const fail = (e: unknown) => toast(e instanceof Error ? e.message : "Couldn't import that.");
+    let file: ParsedExport;
+    try {
+        file = parseExport(text);
+    } catch (e) {
+        fail(e);
+        return;
+    }
     const run = async () => {
         try {
-            const { added, total } = await importFavorites(favoritesBackend, text, mode);
-            toast(`Imported ${plural(added)}. ${plural(total)} in favourites.`);
+            toast(importSummary(await importFavorites(favoritesBackend, file, mode)));
         } catch (e) {
-            toast(e instanceof Error ? e.message : "Couldn't import that.");
+            fail(e);
         }
     };
-    if (mode === "overwrite") {
-        openConfirmAlert({
-            title: "Replace your favourites?",
-            body: "Your favourite GIFs on this account are replaced with the ones in the export. This syncs to your other devices.",
-            confirmText: "Replace",
-            destructive: true,
-            onConfirm: () => void run(),
-        });
-    } else {
+    const warnings = [
+        mode === "overwrite" && "Your favourite GIFs on this account are replaced with the ones in the export. This syncs to your other devices.",
+        otherSitesWarning(file),
+    ].filter(Boolean);
+    if (!warnings.length) {
         await run();
+        return;
     }
+    openConfirmAlert({
+        title: mode === "overwrite" ? "Replace your favourites?" : "Import GIFs from other sites?",
+        body: warnings.join("\n\n"),
+        confirmText: mode === "overwrite" ? "Replace" : "Import",
+        destructive: mode === "overwrite",
+        onConfirm: () => void run(),
+    });
 }
 
 export function FavoritesSection() {

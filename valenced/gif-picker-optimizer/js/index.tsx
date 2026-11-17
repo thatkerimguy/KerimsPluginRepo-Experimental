@@ -24,7 +24,8 @@ import { instead } from "@valenced/patcher";
 import type { ReactNode } from "react";
 import { AppState } from "react-native";
 
-import { cacheStats, resetCaches } from "./cacheStats";
+import { cacheStats, patchStats, resetCaches } from "./cacheStats";
+import { clearPatches, expectPatch, patchFailed, patchWorks } from "./diagnostics";
 import { precacheOptions } from "./favorites";
 import { KlipyResolver } from "./klipy";
 import type { AnyComponent } from "./modules";
@@ -36,7 +37,8 @@ import type { UrlListStore } from "./saved";
 import SettingsComponent from "./settings";
 import type { Settings } from "./settingsStore";
 import { cacheControl, DefaultSettings, getSettings, setStorage } from "./settingsStore";
-import type { FrecencyActions, GifItem, HttpClient } from "./state";
+import type { GifItem, HttpClient } from "./state";
+import type { FrecencyActions } from "./transfer";
 import { apiPreviews, applyQueueSettings, failed, flushSaved, loaded, PLUGIN_ID, runtime, seen } from "./state";
 import { TenorPageResolver } from "./tenor";
 import type { ItemProps } from "./tile";
@@ -110,10 +112,17 @@ export default plugin<{ jsonStorage: Settings; }>({
         applyQueueSettings(getSettings());
         cacheControl.stats = cacheStats;
         cacheControl.reset = resetCaches;
+        cacheControl.patches = patchStats;
+        // Seen working when the code each patch calls runs (diagnostics.ts, shown in settings)
+        expectPatch("tiles", "GIF tiles (one by one, previews)", "open the GIF picker");
+        expectPatch("resultsList", "On-screen GIFs first", "open the GIF picker");
+        expectPatch("searchActions", "Early low resolution requests", "search for GIFs or open Trending");
+        expectPatch("picker", "Faster GIF tab switch", "open the GIF tab");
+        expectPatch("categoriesPage", "Main page (Favourites only)", "open the GIF tab's main page");
 
         seen.attach(savedList("seen.json"));
         failed.attach(savedList("failed.json"));
-        runtime.tenorPages = new TenorPageResolver(savedMap("tenor-pages.json"));
+        runtime.tenorPages = new TenorPageResolver(savedMap("tenor-pages.json"), (message, e) => runtime.logger?.warn?.(message, e));
         runtime.precache = new Precacher(precacheOptions);
         runtime.lowRes = createLowResPages();
         // Saves are batched (persist.ts): save right away when the app goes to the background
@@ -142,6 +151,7 @@ export default plugin<{ jsonStorage: Settings; }>({
         cleanup(
             () => {
                 appState.remove();
+                clearPatches();
                 runtime.precache?.stop();
                 runtime.precache = undefined;
                 runtime.lowRes?.clear();
@@ -155,6 +165,7 @@ export default plugin<{ jsonStorage: Settings; }>({
                 setStorage(undefined);
                 cacheControl.stats = undefined;
                 cacheControl.reset = undefined;
+                cacheControl.patches = undefined;
                 seen.detach();
                 failed.detach();
                 loaded.clear();
@@ -184,10 +195,12 @@ export default plugin<{ jsonStorage: Settings; }>({
                 const startWith = (name: string, start: (args: unknown[]) => void) => {
                     if (typeof (mod as Record<string, unknown>)[name] !== "function") {
                         runtime.logger?.warn?.(`GIFPickerActionCreators.${name} not found, low resolution previews start after the results`);
+                        patchFailed("searchActions", `GIFPickerActionCreators.${name} not found`);
                         return;
                     }
                     try {
                         cleanup(instead(mod as Record<string, (...a: unknown[]) => unknown>, name, function (this: unknown, args, orig) {
+                            patchWorks("searchActions");
                             try {
                                 start(args);
                             } catch (e) {
@@ -197,6 +210,7 @@ export default plugin<{ jsonStorage: Settings; }>({
                         }));
                     } catch (e) {
                         runtime.logger?.warn?.(`Couldn't patch GIFPickerActionCreators.${name}`, e);
+                        patchFailed("searchActions", `couldn't patch GIFPickerActionCreators.${name}`);
                     }
                 };
                 startWith("search", ([query, , immediate, limit]) => {
@@ -258,10 +272,12 @@ export default plugin<{ jsonStorage: Settings; }>({
                 const memo = mod.default;
                 if (typeof memo?.type !== "function") {
                     runtime.logger?.warn?.("GIFPicker isn't a memo component any more, faster tab switch is off");
+                    patchFailed("picker", "GIFPicker isn't a memo component any more");
                     return;
                 }
                 pickerModules.picker = memo.type;
                 cleanup(instead(memo, "type", (args, orig) => {
+                    patchWorks("picker");
                     pickerModules.picker = orig;
                     return <DeferredPicker props={args[0] ?? {}} />;
                 }));
@@ -272,10 +288,12 @@ export default plugin<{ jsonStorage: Settings; }>({
                 const memo = mod.default;
                 if (typeof memo?.type !== "function") {
                     runtime.logger?.warn?.("GIFPickerCategoriesPage isn't a memo component any more, favourites only is off");
+                    patchFailed("categoriesPage", "GIFPickerCategoriesPage isn't a memo component any more");
                     return;
                 }
                 pickerModules.categoriesPage = memo.type;
                 cleanup(instead(memo, "type", (args, orig) => {
+                    patchWorks("categoriesPage");
                     pickerModules.categoriesPage = orig;
                     return <CategoriesPage props={args[0] ?? {}} />;
                 }));

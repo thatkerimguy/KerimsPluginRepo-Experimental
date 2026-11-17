@@ -1,0 +1,115 @@
+# Checks on every push and pull request:
+# - the shared files are the same in both builds (.github/scripts/sync-shared.mjs)
+# - unit tests (tests/unit), including the Vencord module-level check
+# - the Vencord plugin type checks against Vencord's latest source
+# - the Valenced plugin builds (pinned toolchain), type checks and survives pre-init
+# - the Vencord patches still match Discord's code (also weekly, since Discord changes)
+
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Mondays: Discord's code changes without any push here
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  shared-files:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+      - run: node .github/scripts/sync-shared.mjs --check
+
+  unit-tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  discord-patches:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - run: npm ci
+      - run: npm run test:patches
+
+  vencord-typecheck:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+      - name: Check out Vencord
+        run: git clone --depth 1 https://github.com/Vendicated/Vencord.git vencord
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: vencord/package.json
+      - name: Install Vencord's dependencies
+        working-directory: vencord
+        run: pnpm install --frozen-lockfile
+      - name: Type check the plugin as a user plugin
+        working-directory: vencord
+        run: |
+          set -uo pipefail
+          mkdir -p src/userplugins
+          cp -r ../src/vencord/gifPickerOptimizer src/userplugins/
+          pnpm exec tsc --noEmit -p . > tsc.log; status=$?
+          # Errors elsewhere in Vencord aren't ours: only show them
+          grep -v "^src/userplugins/" tsc.log | sed 's/^/::warning::/' || true
+          if grep "^src/userplugins/" tsc.log; then exit 1; fi
+          if [ $status -ne 0 ] && ! grep -q "error TS" tsc.log; then cat tsc.log; exit $status; fi
+
+  valenced-build:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - name: Set up the Valenced plugin template (pinned)
+        run: bash src/.github/scripts/setup-valenced-template.sh template
+      - name: Build, type check and pre-init check
+        working-directory: template
+        run: |
+          set -euo pipefail
+          cp -r ../src/valenced/gif-picker-optimizer plugins/
+          bun run build gif-picker-optimizer
+          bunx tsc -b plugins/gif-picker-optimizer/tsconfig.json
+          node ../src/.github/scripts/preinit-check.cjs plugins/gif-picker-optimizer/build/js/index.js

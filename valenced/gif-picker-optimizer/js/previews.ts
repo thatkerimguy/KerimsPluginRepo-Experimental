@@ -7,6 +7,7 @@ import { Stores } from "@valenced/discord/flux";
 
 import { favoritesBackend } from "./favorites";
 import { LowResPages, wait } from "./klipy";
+import { memoizedUrls } from "./precache";
 import { isKlipyUrl, isTenorPageGif, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
 import { getSettings } from "./settingsStore";
 import type { GifItem } from "./state";
@@ -121,8 +122,6 @@ export function favoriteUrl(item: GifItem): string {
     return pickSrc(item, getSettings().stillFavorites && isFavoriteItem(item));
 }
 
-const urlLists = new WeakMap<GifItem[], { key: string; urls: string[]; }>();
-
 /**
  * `favoriteUrl` for every item, kept per list and only worked out again when
  * something it depends on changed (quality, still favourites, lookups, failed
@@ -138,11 +137,7 @@ export function favoriteUrls(items: GifItem[]): string[] {
         failed.version,
         favoritesBackend.read() ? 1 : 0,
     ].join("|");
-    const memo = urlLists.get(items);
-    if (memo?.key === key) return memo.urls;
-    const urls = items.map(favoriteUrl);
-    urlLists.set(items, { key, urls });
-    return urls;
+    return memoizedUrls(items, key, favoriteUrl);
 }
 
 /** Longest a precache job waits for a Klipy or Tenor lookup */

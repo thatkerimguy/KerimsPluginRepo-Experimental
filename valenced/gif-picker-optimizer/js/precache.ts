@@ -11,6 +11,7 @@
 
 import { LruCache } from "./cache";
 import { Persisted } from "./persist";
+import type { ReactHooks } from "./tileLoader";
 
 /** A GIF to precache: resolves the URL its tile shows (some need a lookup first) */
 export type PrecacheJob = () => Promise<string | null> | string | null;
@@ -182,4 +183,25 @@ export class Precacher {
         if (this.notifyTimer) return;
         this.notifyTimer = setTimeout(() => this.notify(), NOTIFY_INTERVAL_MS);
     }
+}
+
+/** Re-renders the calling component when precaching progresses (pass React's hooks, like `useTileLoader`) */
+export function usePrecacheUpdates(react: Pick<ReactHooks, "useState" | "useEffect">, precache: Precacher | undefined) {
+    const [, setTick] = react.useState(0);
+    react.useEffect(() => precache?.subscribe(() => setTick(n => n + 1)), [precache]);
+}
+
+const urlLists = new WeakMap<object, { key: string; urls: string[]; }>();
+
+/**
+ * `url(item)` for every item, kept per list and only worked out again when `key`
+ * (everything the URLs depend on) changes. Precache counts re-render often during
+ * a run, and a big favourites list has thousands of items.
+ */
+export function memoizedUrls<T>(items: T[], key: string, url: (item: T) => string): string[] {
+    const memo = urlLists.get(items);
+    if (memo?.key === key) return memo.urls;
+    const urls = items.map(url);
+    urlLists.set(items, { key, urls });
+    return urls;
 }

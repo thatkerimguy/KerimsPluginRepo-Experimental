@@ -150,22 +150,32 @@ export function LoadOverlay({ src, video, loading, showProgress, precached, ente
                 const v = root.querySelector("video");
                 if (v?.getAttribute("src") && v.readyState >= HAVE_FUTURE_DATA) finish(true);
             }, 50);
-        } else {
+        } else if (loading) {
             // Discord preloads images on a detached <img>, so watch the same URL.
             // The browser shares the request, it isn't downloaded twice.
             probe = new Image();
             probe.onload = () => finish(true);
             probe.onerror = () => finish(false);
             probe.src = src;
+        } else {
+            // Shown from cache (it loaded this session): only a later failure matters, and
+            // Discord's own <img> reports it. Errors don't bubble, so listen while capturing.
+            root.addEventListener("error", onImageError, true);
+        }
+
+        function onImageError(e: Event) {
+            const img = e.target;
+            if (img instanceof HTMLImageElement && (img.getAttribute("src") === src || img.src === src)) finish(false);
         }
 
         return () => {
             finished = true;
             clearTimeout(check);
             for (const ev of VIDEO_EVENTS) root.removeEventListener(ev, onMedia, true);
+            root.removeEventListener("error", onImageError, true);
             if (probe) probe.onload = probe.onerror = null;
         };
-    }, [src, video]);
+    }, [src, video, loading]);
 
     return (
         <div ref={ref} className={cl("overlay", { "overlay-loading": loading })} style={sync}>

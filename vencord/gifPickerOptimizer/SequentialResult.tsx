@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "@webpack/common";
 import type { MouseEvent } from "react";
 
 import { Indicator, LoadOverlay, PLACEHOLDER_COLOR, shimmerInStep, StillTile } from "./components";
+import { patchWorks } from "./diagnostics";
 import { isVideoUrl, normalizeUrl, stillUrl } from "./lowres";
 import { isFavoritesTile, klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
 import { quality, settings } from "./settings";
@@ -20,6 +21,7 @@ import { GIF_TYPE_VIDEO, type GifItem, type ResultProps } from "./types";
 import { useViewport } from "./viewport";
 
 function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
+    patchWorks("results");
     const { item, src, coords } = rest;
     const { loadTimeout, showProgress, stillFavorites } = settings.use(["loadTimeout", "showProgress", "quality", "stillFavorites"]);
 

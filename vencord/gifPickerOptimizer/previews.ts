@@ -7,7 +7,9 @@
 
 import { GIFPickerViewStore, LocaleStore, RestAPI } from "@webpack/common";
 
+import { patchWorks } from "./diagnostics";
 import { LowResPages, wait } from "./klipy";
+import { memoizedUrls } from "./precache";
 import { isKlipyUrl, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl } from "./lowres";
 import { quality, settings } from "./settings";
 import { apiPreviews, failed, logger, queue, runtime } from "./state";
@@ -41,6 +43,7 @@ export function createLowResPages() {
 
 /** Discord's search (query) or trending (no query) request is starting: start ours with it (from a patch) */
 export function lowResStarted(query: string | undefined, limit: number | undefined) {
+    patchWorks("searchActions");
     try {
         runtime.lowRes?.started(typeof query === "string" ? query : undefined, typeof limit === "number" ? limit : undefined);
     } catch (e) {
@@ -102,20 +105,13 @@ export function favoriteUrl(item: GifItem) {
     return settings.store.stillFavorites ? pickStill(item, item.src).url : pickSrc(item, item.src);
 }
 
-const urlLists = new WeakMap<GifItem[], { key: string; urls: string[]; }>();
-
 /**
  * `favoriteUrl` for every item, kept per list and only worked out again when
  * something it depends on changed (quality, still favourites, Klipy lookups,
  * failed previews). Precache counts re-render often during a run.
  */
 export function favoriteUrls(items: GifItem[]): string[] {
-    const key = `${quality()}|${settings.store.stillFavorites}|${runtime.klipy?.version ?? 0}|${failed.version}`;
-    const memo = urlLists.get(items);
-    if (memo?.key === key) return memo.urls;
-    const urls = items.map(favoriteUrl);
-    urlLists.set(items, { key, urls });
-    return urls;
+    return memoizedUrls(items, `${quality()}|${settings.store.stillFavorites}|${runtime.klipy?.version ?? 0}|${failed.version}`, favoriteUrl);
 }
 
 /** Longest a precache waits for a Klipy lookup */

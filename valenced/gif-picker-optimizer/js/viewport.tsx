@@ -12,9 +12,10 @@
  * visible range; FlashList had unmounted those already, so that was removed.
  */
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
+import { patchWorks } from "./diagnostics";
 import { lazy } from "./lazy";
 import { useSettings } from "./settingsStore";
 import { applyQueueSettings, loaded } from "./state";
@@ -67,10 +68,20 @@ export interface ResultsListProps {
 }
 
 /** The list element inside Discord's results list (a MasonryFlashList) */
-const isFlashList = (n: any) =>
+interface ViewableInfo {
+    viewableItems?: ViewToken[];
+}
+
+/** The props of Discord's MasonryFlashList the plugin uses */
+interface FlashListProps {
+    onViewableItemsChanged?: (info: ViewableInfo) => void;
+    renderItem?: unknown;
+}
+
+const isFlashList = (n: unknown): n is ReactElement<FlashListProps> =>
     isValidElement(n)
-    && typeof (n.props as any)?.onViewableItemsChanged === "function"
-    && typeof (n.props as any)?.renderItem === "function";
+    && typeof (n.props as FlashListProps | null)?.onViewableItemsChanged === "function"
+    && typeof (n.props as FlashListProps | null)?.renderItem === "function";
 
 /** Wraps Discord's GIF results list to track which items are on screen */
 export function OptimizedResultsList({ props, render }: { props: ResultsListProps; render: (p: ResultsListProps) => ReactNode; }) {
@@ -84,22 +95,23 @@ export function OptimizedResultsList({ props, render }: { props: ResultsListProp
     useEffect(() => applyQueueSettings(settings), [sequential, concurrency]);
     const tree = render(props);
 
-    const originalCallback = useRef<((info: any) => void) | null>(null);
+    const originalCallback = useRef<((info: ViewableInfo) => void) | null>(null);
     // Stable, because lists don't support changing onViewableItemsChanged on the fly
-    const onViewableItemsChanged = useCallback((info: any) => {
+    const onViewableItemsChanged = useCallback((info: ViewableInfo) => {
         originalCallback.current?.(info);
         store.update(info?.viewableItems);
     }, [store]);
 
-    const [result, hit] = replaceInTree(tree, isFlashList, (list: any) => {
-        originalCallback.current = list.props.onViewableItemsChanged;
+    const [result, hit] = replaceInTree(tree, isFlashList, list => {
+        originalCallback.current = list.props.onViewableItemsChanged ?? null;
         return cloneElement(list, { onViewableItemsChanged });
     });
 
+    if (hit) patchWorks("resultsList");
     const ViewportContext = viewportContext();
     return (
         <ViewportContext.Provider value={hit ? store : null}>
-            {hit ? result : tree}
+            {(hit ? result : tree) as ReactNode}
         </ViewportContext.Provider>
     );
 }

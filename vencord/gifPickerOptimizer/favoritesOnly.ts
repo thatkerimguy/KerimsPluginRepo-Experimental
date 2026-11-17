@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { patchWorks } from "./diagnostics";
 import { settings } from "./settings";
 
 /** Stable empty list, so memoized category data doesn't change on every render */
@@ -22,6 +23,7 @@ function categoriesMissing(categories: unknown[] | undefined) {
 
 /** Tiles after Favorites on the picker's main page: the featured categories (none with "Favourites only") */
 export function featured<T>(categories: T[]) {
+    patchWorks("categories");
     return settings.store.favoritesOnly ? NO_CATEGORIES as T[] : categories;
 }
 
