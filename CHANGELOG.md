@@ -9,11 +9,21 @@ and tests ran.
 
 What's new since the last stable release, for the release notes:
 - Failed previews are retried instead of loading the full size GIF; a tile that keeps failing shows a hollow ring and tries again later.
+- Faster loading: GIFs you've seen before come in many at a time while they load from cache, Klipy favourite lookups no longer hold up other GIFs (and never fall back to the full size file), only Klipy tiles wait for small search versions, slow GIFs can't pile up on bad connections, and desktop opens connections to GIF hosts early.
 - Settings reorganised on both desktop and mobile: sections (Previews, Loading, GIF picker, Favourites, Status and cache), plain titles and descriptions, preview sizes with rough pixel widths, "Auto" says what it's using right now (desktop), settings that don't apply are hidden, Patches and Cache are expandable summaries, and Restore default settings.
 - Patch status in settings, to see whether each hook into Discord works.
 - Favourites import checks the file: https only, and GIFs from other sites are listed before importing.
 - Precaching was removed (it rarely helped; GIFs seen before already load first from cache).
 - Many fixes from code reviews: tiles stuck waiting, Tenor still favourites on mobile, reset cache with the plugin off, much faster imports, and saving that batches writes and saves when Discord closes.
+
+**Changed on 2026-11-17 (1.7.0: loading and caching improvements; not tried in Discord or on a device):**
+- Klipy favourite lookups: a tile waiting for its lookup gives its queue slot to the next GIF and queues again once the lookup settled. A slow lookup no longer times out into loading the full size original. Two lookups run at a time (`Limiter` in klipy.ts) instead of one.
+- Cache fast lane (queue.ts): tiles report load times; while seen-before GIFs load in ≤ 150 ms, up to 8 more of them start at once. One that takes ≥ 400 ms or times out closes the lane.
+- Waiting for small Klipy versions only holds Klipy search tiles (`waitsForLowRes`, `hold()`), not every tile.
+- Desktop preconnects to a GIF host when a tile queues (`preconnect.ts`, at most every 10 s per host).
+- A preview that failed for good before gets one quick retry instead of three; a load that works takes it off the failed list.
+- Overtime: a GIF past the load timeout keeps downloading but counts against a second limit (2 × `concurrency` downloads in total), so slow ones can't pile up on a bad connection.
+- Tests: 49 (new: hold only for Klipy, fast lane on and off, fast lane only for seen-before, overtime cap, lookup frees its slot and loads the small URL, quick retry, release and load time reporting, the limiter).
 
 **Changed on 2026-11-17 (1.7.0: settings wording shared, restore defaults; not tried in Discord or on a device):**
 - Version 1.7.0 (`manifest.json`).

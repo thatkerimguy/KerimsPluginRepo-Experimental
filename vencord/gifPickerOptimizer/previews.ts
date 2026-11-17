@@ -35,7 +35,7 @@ export function createLowResPages() {
             return (await RestAPI.get({ url, query, oldFormErrors: true }))?.body;
         },
         previews: apiPreviews,
-        block: ms => queue.block(ms),
+        hold: ms => queue.hold(ms),
         warn: (message, e) => logger.warn(message, e),
     });
 }

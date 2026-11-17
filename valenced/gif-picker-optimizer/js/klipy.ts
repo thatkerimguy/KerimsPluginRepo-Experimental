@@ -12,7 +12,7 @@
  * once. The other results a search returns are kept in a small in-memory cache
  * (they sometimes cover another favourite) and only saved once a favourite uses
  * one, so the saved cache grows with your Klipy favourites, not with every
- * search result. Lookups run one at a time, spaced out.
+ * search result. Two lookups run at a time, spaced out.
  */
 
 import type { ApiPreviewCache, GifRef } from "./cache";
@@ -38,6 +38,8 @@ const MAX_ENTRIES = 5000;
 const MAX_EXTRA_ENTRIES = 500;
 const SEARCH_LIMIT = 50;
 const SPACING_MS = 300;
+/** Lookups at once. Each one frees its place SPACING_MS after it ended. */
+const LOOKUP_CONCURRENCY = 2;
 /** Don't wait longer than this for the saved cache, or for one search */
 const LOAD_TIMEOUT_MS = 2000;
 const SEARCH_TIMEOUT_MS = 8000;
@@ -55,7 +57,7 @@ export class KlipyResolver {
     /** Same keys as `cache`, for results of searches made for other favourites */
     private extra = new LruCache<string, string>(MAX_EXTRA_ENTRIES);
     private pending = new Map<string, Promise<string | null>>();
-    private chain: Promise<unknown> = Promise.resolve();
+    private limiter = new Limiter(LOOKUP_CONCURRENCY, SPACING_MS);
     private saved: Persisted<Record<string, string>>;
     /** media_format -> searches that failed in a row; formats that worked are deleted */
     private formatFailures = new Map<string, number>();
@@ -117,7 +119,7 @@ export class KlipyResolver {
         const existing = this.pending.get(id);
         if (existing) return existing;
 
-        const run = this.chain.then(async () => {
+        const run = this.limiter.run(async () => {
             await Promise.race([this.saved.ready, wait(LOAD_TIMEOUT_MS)]);
             for (const format of formats) {
                 const cached = this.lookup(this.key(format, pageUrl));
@@ -141,7 +143,6 @@ export class KlipyResolver {
             return null;
         }).finally(() => this.pending.delete(id));
 
-        this.chain = run.then(() => wait(SPACING_MS));
         this.pending.set(id, run);
         return run;
     }
@@ -366,8 +367,8 @@ export interface LowResPagesOptions {
     /** GET on Discord's API. Resolves the response body. */
     get(url: string, query: Record<string, unknown>): Promise<unknown>;
     previews: ApiPreviewCache;
-    /** Holds the load queue for up to `ms`. Returns the release. */
-    block(ms: number): () => void;
+    /** Holds the load queue's Klipy search tiles for up to `ms`. Returns the release. */
+    hold(ms: number): () => void;
     warn(message: string, e: unknown): void;
 }
 
@@ -437,12 +438,12 @@ export class LowResPages {
         const early = this.prefetcher.pending(query);
         if (early) {
             const left = LOW_RES_CAP_MS - early.runningMs;
-            if (early.wait && left > 0) early.wait.finally(this.o.block(left));
+            if (early.wait && left > 0) early.wait.finally(this.o.hold(left));
             return;
         }
 
-        // Hold the queue so tiles don't start loading the full resolution file meanwhile
-        const release = this.o.block(LOW_RES_CAP_MS);
+        // Hold the Klipy tiles so they don't start loading the full size file meanwhile
+        const release = this.o.hold(LOW_RES_CAP_MS);
         try {
             await this.request({ query, format, limit: items.length });
         } catch (e) {
@@ -466,6 +467,38 @@ export function isRejection(e: unknown): boolean {
     const err = e as { status?: unknown; response?: { status?: unknown; }; } | null;
     const status = Number(err?.status ?? err?.response?.status);
     return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+/** Runs at most `max` tasks at once; a finished task frees its place `spacingMs` later */
+export class Limiter {
+    private running = 0;
+    private waiters: (() => void)[] = [];
+
+    constructor(private max: number, private spacingMs: number) { }
+
+    async run<T>(task: () => Promise<T>): Promise<T> {
+        await this.acquire();
+        try {
+            return await task();
+        } finally {
+            setTimeout(() => this.release(), this.spacingMs);
+        }
+    }
+
+    private acquire(): Promise<void> {
+        if (this.running < this.max) {
+            this.running++;
+            return Promise.resolve();
+        }
+        return new Promise(resolve => this.waiters.push(resolve));
+    }
+
+    /** Hands the place to the next task in line, or frees it */
+    private release() {
+        const next = this.waiters.shift();
+        if (next) next();
+        else this.running--;
+    }
 }
 
 export function wait(ms: number) {

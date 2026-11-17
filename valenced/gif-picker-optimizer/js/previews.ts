@@ -34,7 +34,7 @@ export function createLowResPages() {
             return (await http.get({ url, query, oldFormErrors: true }))?.body;
         },
         previews: apiPreviews,
-        block: ms => queue.block(ms),
+        hold: ms => queue.hold(ms),
         warn: (message, e) => runtime.logger?.warn?.(message, e),
     });
 }

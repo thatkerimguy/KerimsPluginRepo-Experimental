@@ -14,7 +14,7 @@ const { act } = TR as any;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const settle = async () => { for (let i = 0; i < 4; i++) await act(async () => { await sleep(5); }); };
 
-function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; } = {}) {
+function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; failedBefore?: Set<string>; } = {}) {
     const queue = new LoadQueue();
     queue.concurrency = 1;
     const dropped = new WeakSet<Ticket>();
@@ -26,6 +26,7 @@ function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; } = {}) {
         markLoaded: u => { log.push(`loaded ${u}`); opts.cached?.add(u); },
         markFailed: u => log.push(`failed ${u}`),
         forgetLoaded: u => { log.push(`forgot ${u}`); opts.cached?.delete(u); },
+        failedBefore: u => !!opts.failedBefore?.has(u),
         drop: t => { if (t) { dropped.add(t); queue.cancel(t); } },
         isDropped: t => dropped.has(t),
         onError: () => { },
@@ -36,9 +37,9 @@ function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; } = {}) {
 type Api = ReturnType<typeof useTileLoader>;
 const apis: Record<string, Api> = {};
 const renders: Record<string, { phase: string; seenBefore: boolean; }[]> = {};
-function Tile(p: { id: string; env: TileEnv; index: number; still?: boolean; enabled?: boolean; pick: () => string; lookup?: () => Promise<unknown> | null; probe?: (u: string) => Promise<boolean>; }) {
+function Tile(p: { id: string; env: TileEnv; index: number; still?: boolean; enabled?: boolean; loadTimeout?: number; pick: () => string; lookup?: () => Promise<unknown> | null; probe?: (u: string) => Promise<boolean>; }) {
     const api = useTileLoader(React as any, p.env, {
-        original: `orig-${p.id}`, index: p.index, still: !!p.still, enabled: p.enabled, loadTimeout: 30, initiallyVisible: true,
+        original: `orig-${p.id}`, index: p.index, still: !!p.still, enabled: p.enabled, loadTimeout: p.loadTimeout ?? 30, initiallyVisible: true,
         pick: p.pick, lookup: p.lookup ?? (() => null), probeCache: p.probe, retryDelaysMs: [5, 5, 5],
     });
     apis[p.id] = api;
@@ -193,5 +194,61 @@ test("an original that fails just stops", async () => {
     await failTimes("o", 1);
     assert.equal(apis.o.phase, "done");
     assert.equal(apis.o.attempt, 0, "no retry loop for the original (Discord's own tile handles it)");
+    act(() => root.unmount());
+});
+
+test("a lookup frees its slot, and the tile loads the small URL once it's known", async () => {
+    const { env } = makeEnv({ cached: new Set() });
+    let resolveLookup!: () => void;
+    let known = false;
+    let root: any;
+    await act(async () => { root = TR.create(React.createElement(React.Fragment, null,
+        React.createElement(Tile, {
+            id: "k", env, index: 0,
+            pick: () => (known ? "small-k" : "orig-k"),
+            lookup: () => (known ? null : new Promise<void>(r => { resolveLookup = () => { known = true; r(); }; })),
+        }),
+        React.createElement(Tile, { id: "n", env, index: 1, pick: () => "low-n" }))); });
+    await settle();
+    assert.equal(apis.k.phase, "resolving");
+    assert.equal(apis.n.phase, "loading", "the next GIF loads while the lookup runs");
+    assert.equal(apis.k.chosen, null, "no original meanwhile");
+    await act(async () => resolveLookup());
+    await settle();
+    await act(async () => apis.n.done());
+    await settle();
+    assert.equal(apis.k.phase, "loading");
+    assert.equal(apis.k.chosen, "small-k");
+    act(() => root.unmount());
+});
+
+test("a preview that failed for good before gets one quick retry", async () => {
+    const { env, log } = makeEnv({ cached: new Set(), failedBefore: new Set(["low-q"]) });
+    let root: any;
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "q", env, index: 0, pick: () => "low-q" })); });
+    await settle();
+    await failTimes("q", 1);
+    assert.equal(apis.q.phase, "loading", "one retry");
+    await failTimes("q", 1);
+    assert.equal(apis.q.gaveUp, true, "then gives up");
+    assert.ok(log.includes("failed low-q"));
+    act(() => root.unmount());
+});
+
+test("a slow GIF releases its slot after the timeout, and reports its load time", async () => {
+    const { env } = makeEnv({ cached: new Set() });
+    const calls: string[] = [];
+    const queue = env.queue as any;
+    const release = queue.release.bind(queue);
+    const finish = queue.finish.bind(queue);
+    queue.release = (t: unknown) => { calls.push("release"); release(t); };
+    queue.finish = (t: unknown, ms?: number) => { calls.push(`finish ${typeof ms}`); finish(t, ms); };
+    let root: any;
+    await act(async () => { root = TR.create(React.createElement(Tile, { id: "t", env, index: 0, pick: () => "low-t", loadTimeout: 0.01 })); });
+    await settle();
+    await act(async () => { await sleep(30); });
+    assert.ok(calls.includes("release"), "released after the timeout");
+    await act(async () => apis.t.done());
+    assert.ok(calls.includes("finish number"), "finished with its load time");
     act(() => root.unmount());
 });

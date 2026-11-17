@@ -17,6 +17,8 @@ export interface TrackingOptions {
     /** Other saved caches to save with the lists in `flushSaved` (Klipy, Tenor) */
     savedCaches(): ({ flush(): void; } | undefined)[];
     onError(message: string, e: unknown): void;
+    /** A tile will load `url` soon (desktop: preconnect to its host) */
+    warmUp?(url: string): void;
 }
 
 export function createTracking(o: TrackingOptions) {
@@ -43,6 +45,8 @@ export function createTracking(o: TrackingOptions) {
     const markLoaded = (url: string) => {
         loaded.mark(url);
         seen.add(url);
+        // It works again
+        failed.delete(url);
     };
 
     /** Forgets `url` everywhere after it failed to load */
@@ -76,6 +80,8 @@ export function createTracking(o: TrackingOptions) {
             forgetLoaded(url);
         },
         forgetLoaded,
+        failedBefore: url => failed.has(url),
+        warmUp: o.warmUp,
         drop,
         isDropped,
         onError: o.onError,

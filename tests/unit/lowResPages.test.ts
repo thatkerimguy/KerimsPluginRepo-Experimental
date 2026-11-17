@@ -14,7 +14,7 @@ test("early request, waiting for it, fallback request, disabled", async () => {
     const pages = new LowResPages({
         quality: () => "s", enabled: () => enabled, selectedFormat: () => "mp4", locale: () => "en-US",
         get: (url, query) => { calls.push({ url, query }); return new Promise(r => { answer = r; }); },
-        previews, block: ms => { blocks.push(ms); return () => { released++; }; }, warn: () => { },
+        previews, hold: ms => { blocks.push(ms); return () => { released++; }; }, warn: () => { },
     });
     assert.equal(pages.format(), "tinymp4");
     pages.started("cats", 50);

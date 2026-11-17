@@ -8,16 +8,17 @@
  * Valenced build may not touch React when the script is evaluated.
  *
  * - queued: waiting for a turn in the load queue
- * - resolving: looking up the small Klipy / Tenor URL before loading
+ * - resolving: looking up the small Klipy / Tenor URL (holds no queue slot; the
+ *   tile queues again once it's known, and never loads the original meanwhile)
  * - loading: the chosen URL is loading
  * - done: loaded, shown from cache, or given up after retries (`gaveUp`)
  *
  * A preview that fails is tried again (most failures are a network hiccup), and is
  * never swapped for the full size original: that's the download the plugin is there
  * to avoid. A still image that keeps failing falls back to the animated preview.
+ * A preview that already failed for good before gets one quick retry, not three.
  */
 
-import { wait } from "./klipy";
 import type { LoadQueue, Ticket } from "./queue";
 
 export type Phase = "queued" | "resolving" | "loading" | "done";
@@ -44,6 +45,10 @@ export interface TileEnv {
     markFailed(url: string): void;
     /** A URL that failed once: no longer counts as loaded, so the retry takes a turn in the queue */
     forgetLoaded(url: string): void;
+    /** Whether `url` failed every retry before (it then gets one quick retry) */
+    failedBefore(url: string): boolean;
+    /** A tile will load `url` soon (desktop: open a connection to its host ahead of time) */
+    warmUp?(url: string): void;
     drop(ticket: Ticket | null): void;
     isDropped(ticket: Ticket): boolean;
     onError(message: string, e: unknown): void;
@@ -62,6 +67,8 @@ export interface TileLoaderOptions {
     loadTimeout: number;
     /** Whether a new tile counts as on screen until the build reports otherwise */
     initiallyVisible: boolean;
+    /** A search result whose small version comes with the results page (Klipy): waits while it's fetched */
+    waitsForLowRes?: boolean;
     /** The URL to show now */
     pick(): string;
     /** A lookup to wait for before picking (Klipy / Tenor), or null */
@@ -102,6 +109,10 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
     /** Every retry failed and there's no other preview: the tile waits (no full size download) */
     const [gaveUp, setGaveUp] = useState(false);
     const retries = useRef(0);
+    /** The lookup ran for this pick, so a tile that queues again doesn't start another one */
+    const lookedUp = useRef(false);
+    /** When the current load started, to tell cache hits (instant) from downloads */
+    const loadStartedAt = useRef(0);
     const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const cancelRetry = () => {
         clearTimeout(retryTimer.current);
@@ -127,6 +138,7 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
     const restart = () => {
         cancelRetry();
         retries.current = 0;
+        lookedUp.current = false;
         setGaveUp(false);
         env.drop(ticketRef.current);
         setChosen(null);
@@ -146,6 +158,7 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
             setPhase("done");
             return;
         }
+        env.warmUp?.(url);
         const priority = env.wasSeen(url);
         setSeenBefore(priority);
 
@@ -158,23 +171,28 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
                 env.queue.finish(ticket);
                 setPhase("done");
             } else {
+                loadStartedAt.current = Date.now();
                 setPhase("loading");
             }
         };
         const ticket: Ticket = {
             visible: visibleRef.current,
             priority,
+            waitsForLowRes: optsRef.current.waitsForLowRes,
             order: () => indexRef.current ?? 0,
             start: () => {
                 started = true;
                 try {
-                    const lookup = optsRef.current.lookup();
+                    const lookup = lookedUp.current ? null : optsRef.current.lookup();
                     if (!lookup) return begin();
+                    // A lookup isn't a download: give the slot to the next GIF meanwhile,
+                    // and queue again once the small URL is known (or the lookup gave up)
+                    lookedUp.current = true;
+                    env.queue.finish(ticket);
                     setPhase("resolving");
-                    // A lookup never holds a tile longer than the load timeout
-                    Promise.race([lookup, wait(loadTimeout * 1000)])
-                        .catch(() => { })
-                        .then(() => !env.isDropped(ticket) && begin());
+                    lookup.catch(() => { }).then(() => {
+                        if (!env.isDropped(ticket)) setPhase("queued");
+                    });
                 } catch (e) {
                     env.onError("Couldn't start loading a GIF", e);
                     setChosen(original);
@@ -217,10 +235,11 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
         if (!enabled && (phase === "resolving" || phase === "loading")) restart();
     }, [enabled]);
 
-    // Release the slot after the timeout so one slow GIF doesn't hold everything up
+    // After the timeout a slow GIF gives its slot to the next one and carries on in
+    // the background (counted as overtime, so slow ones can't pile up)
     useEffect(() => {
-        if (phase !== "loading" && phase !== "resolving") return;
-        const timer = setTimeout(() => ticketRef.current && env.queue.finish(ticketRef.current), loadTimeout * 1000);
+        if (phase !== "loading") return;
+        const timer = setTimeout(() => ticketRef.current && env.queue.release(ticketRef.current), loadTimeout * 1000);
         return () => clearTimeout(timer);
     }, [phase, chosen]);
 
@@ -236,7 +255,7 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
         // It loaded after all (the image element retried by itself): no failed mark
         if (gaveUp) setGaveUp(false);
         if (phase !== "loading") return;
-        if (ticketRef.current) env.queue.finish(ticketRef.current);
+        if (ticketRef.current) env.queue.finish(ticketRef.current, Date.now() - loadStartedAt.current);
         setPhase("done");
     };
 
@@ -251,8 +270,10 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
         }
         setProgress(null);
 
-        // Try the same preview again after a while, without holding a queue slot meanwhile
-        const delays = optsRef.current.retryDelaysMs ?? RETRY_DELAYS_MS;
+        // Try the same preview again after a while, without holding a queue slot meanwhile.
+        // One that failed for good before gets one quick retry (it's probably gone).
+        const allDelays = optsRef.current.retryDelaysMs ?? RETRY_DELAYS_MS;
+        const delays = env.failedBefore(chosen) ? allDelays.slice(0, 1) : allDelays;
         if (retries.current < delays.length) {
             const failedUrl = chosen;
             if (ticketRef.current) env.queue.finish(ticketRef.current);

@@ -9,6 +9,7 @@ import { Logger } from "@utils/Logger";
 import type { ReactNode } from "react";
 
 import type { KlipyResolver, LowResPages } from "./klipy";
+import { preconnect } from "./preconnect";
 import { createTracking } from "./tracking";
 
 export const PLUGIN_NAME = "GIFs+";
@@ -45,4 +46,5 @@ export const {
     loadedSize: 1000,
     savedCaches: () => [runtime.klipy],
     onError: (message, e) => logger.error(message, e),
+    warmUp: preconnect,
 });

@@ -12,8 +12,8 @@ import type { MouseEvent } from "react";
 
 import { Indicator, LoadOverlay, PLACEHOLDER_COLOR, shimmerInStep, StillTile } from "./components";
 import { patchWorks } from "./diagnostics";
-import { isVideoUrl, normalizeUrl, stillUrl } from "./lowres";
-import { isFavoritesTile, klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
+import { isKlipyUrl, isVideoUrl, normalizeUrl, stillUrl } from "./lowres";
+import { isFavoriteItem, isFavoritesTile, klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
 import { quality, settings } from "./settings";
 import { cl, tileEnv } from "./state";
 import { useTileLoader } from "./tileLoader";
@@ -35,6 +35,8 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
         still,
         loadTimeout,
         initiallyVisible: false,
+        // Klipy search results get their small version with the results page
+        waitsForLowRes: !isFavoriteItem(item) && isKlipyUrl(src),
         pick: () => (still ? pickStill(item, src).url : pickSrc(item, src)),
         lookup: () => klipyLookupFor(item, src),
     });

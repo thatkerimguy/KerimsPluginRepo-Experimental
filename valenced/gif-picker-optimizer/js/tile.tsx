@@ -16,7 +16,7 @@ import type { StyleProp, ViewStyle } from "react-native";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 import { patchWorks } from "./diagnostics";
-import { normalizeUrl } from "./lowres";
+import { isKlipyUrl, normalizeUrl } from "./lowres";
 import { isNativeCached } from "./nativeCache";
 import { lookupFor, pickSrc } from "./previews";
 import { useSettings } from "./settingsStore";
@@ -312,6 +312,8 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
             enabled: hasImage,
             loadTimeout,
             initiallyVisible: true,
+            // Klipy search results get their small version with the results page
+            waitsForLowRes: !isFavoriteItem(item) && isKlipyUrl(item.src),
             pick: () => pickSrc(item, still),
             lookup: () => lookupFor(item),
             probeCache: isNativeCached,
