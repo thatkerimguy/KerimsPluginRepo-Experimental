@@ -14,7 +14,7 @@ const { act } = TR as any;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const settle = async () => { for (let i = 0; i < 4; i++) await act(async () => { await sleep(5); }); };
 
-function makeEnv(opts: { cached?: Set<string>; precached?: Set<string>; } = {}) {
+function makeEnv(opts: { cached?: Set<string>; seen?: Set<string>; } = {}) {
     const queue = new LoadQueue();
     queue.concurrency = 1;
     const dropped = new WeakSet<Ticket>();
@@ -22,7 +22,7 @@ function makeEnv(opts: { cached?: Set<string>; precached?: Set<string>; } = {}) 
     const env: TileEnv = {
         queue,
         isCached: u => !!opts.cached?.has(u),
-        isPrecached: u => !!opts.precached?.has(u),
+        wasSeen: u => !!opts.seen?.has(u),
         markLoaded: u => { log.push(`loaded ${u}`); opts.cached?.add(u); },
         markFailed: u => log.push(`failed ${u}`),
         drop: t => { if (t) { dropped.add(t); queue.cancel(t); } },
@@ -34,14 +34,14 @@ function makeEnv(opts: { cached?: Set<string>; precached?: Set<string>; } = {}) 
 
 type Api = ReturnType<typeof useTileLoader>;
 const apis: Record<string, Api> = {};
-const renders: Record<string, { phase: string; precached: boolean; }[]> = {};
+const renders: Record<string, { phase: string; seenBefore: boolean; }[]> = {};
 function Tile(p: { id: string; env: TileEnv; index: number; still?: boolean; enabled?: boolean; pick: () => string; lookup?: () => Promise<unknown> | null; probe?: (u: string) => Promise<boolean>; }) {
     const api = useTileLoader(React as any, p.env, {
         original: `orig-${p.id}`, index: p.index, still: !!p.still, enabled: p.enabled, loadTimeout: 30, initiallyVisible: true,
         pick: p.pick, lookup: p.lookup ?? (() => null), probeCache: p.probe,
     });
     apis[p.id] = api;
-    (renders[p.id] ??= []).push({ phase: api.phase, precached: api.precached });
+    (renders[p.id] ??= []).push({ phase: api.phase, seenBefore: api.seenBefore });
     return null;
 }
 
@@ -65,13 +65,13 @@ test("Sequential in index order, one at a time", async () => {
     act(() => root.unmount());
 });
 
-test("Precached: precached from the very first render (no queued-dot flash); cached: done at once", async () => {
-    const { env } = makeEnv({ cached: new Set(["low-cached"]), precached: new Set(["low-pre"]) });
+test("Seen before: known on the very first render (no queued-dot flash); cached: done at once", async () => {
+    const { env } = makeEnv({ cached: new Set(["low-cached"]), seen: new Set(["low-pre"]) });
     let root: any;
     await act(async () => { root = TR.create(React.createElement(React.Fragment, null,
         React.createElement(Tile, { id: "pre", env, index: 0, pick: () => "low-pre" }),
         React.createElement(Tile, { id: "cached", env, index: 1, pick: () => "low-cached" }))); });
-    assert.equal(renders.pre[0].precached, true, "precached on first render");
+    assert.equal(renders.pre[0].seenBefore, true, "seen before on the first render");
     assert.equal(renders.cached[0].phase, "done", "cached shows at once");
     await settle();
     assert.equal(apis.pre.phase, "loading");

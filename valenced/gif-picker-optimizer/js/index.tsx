@@ -9,10 +9,10 @@
  * - Shows a loading / progress indicator on tiles that are still empty.
  * - Shows a lower resolution preview in the picker (XS / S / SD) while still
  *   sending and favouriting the original, full resolution GIF.
- * - Shows GIFs that loaded recently from cache at once, and precached ones
+ * - Shows GIFs that loaded recently from cache at once, and ones seen before
  *   first. (Discord's list already unmounts GIFs that scroll away.)
  * - Optionally shows still (not animated) previews in the favourites tab.
- * - Precaches favourites, and exports / imports them between accounts.
+ * - Exports / imports favourites between accounts.
  */
 
 import { onFluxEventDispatched } from "@valenced/discord/flux";
@@ -26,12 +26,10 @@ import { AppState } from "react-native";
 
 import { cacheStats, patchStats, resetCaches } from "./cacheStats";
 import { clearPatches, expectPatch, patchFailed, patchWorks } from "./diagnostics";
-import { precacheOptions } from "./favorites";
 import { KlipyResolver } from "./klipy";
 import type { AnyComponent } from "./modules";
 import { pickerModules } from "./modules";
 import { CategoriesPage, DeferredPicker } from "./picker";
-import { Precacher } from "./precache";
 import { createLowResPages, locale } from "./previews";
 import type { UrlListStore } from "./saved";
 import SettingsComponent from "./settings";
@@ -123,7 +121,8 @@ export default plugin<{ jsonStorage: Settings; }>({
         seen.attach(savedList("seen.json"));
         failed.attach(savedList("failed.json"));
         runtime.tenorPages = new TenorPageResolver(savedMap("tenor-pages.json"), (message, e) => runtime.logger?.warn?.(message, e));
-        runtime.precache = new Precacher(precacheOptions);
+        // Precaching was removed: drop its saved list
+        void getJsonStorage(pluginStoragePathFor(PLUGIN_ID, "precache.json"), { default: {} }).delete().catch(() => { });
         runtime.lowRes = createLowResPages();
         // Saves are batched (persist.ts): save right away when the app goes to the background
         const appState = AppState.addEventListener("change", state => {
@@ -152,8 +151,6 @@ export default plugin<{ jsonStorage: Settings; }>({
             () => {
                 appState.remove();
                 clearPatches();
-                runtime.precache?.stop();
-                runtime.precache = undefined;
                 runtime.lowRes?.clear();
                 runtime.lowRes = undefined;
                 runtime.frecency = undefined;
@@ -180,7 +177,7 @@ export default plugin<{ jsonStorage: Settings; }>({
                 { max: 1 },
             ),
 
-            // Discord's favourites (precache, export and import)
+            // Discord's favourites (export and import)
             getModules(
                 withProps<{ FrecencyUserSettingsActionCreators: FrecencyActions; }>("FrecencyUserSettingsActionCreators"),
                 mod => {

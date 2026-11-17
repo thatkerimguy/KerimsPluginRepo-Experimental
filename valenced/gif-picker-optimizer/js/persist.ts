@@ -2,7 +2,7 @@
  * GIFs+ — saving in-memory data that survives a restart.
  * Shared between the Vencord and Valenced builds (keep both copies in sync).
  *
- * Every saved cache (seen / failed URLs, precached URLs, Klipy and Tenor lookups)
+ * Every saved cache (seen / failed URLs, Klipy and Tenor lookups)
  * works the same way: load the saved copy once and merge it under what's known
  * already, save a while after a change, and never save before the saved copy was
  * read, because a save replaces it. `Persisted` does that for each of them.
@@ -24,7 +24,7 @@ export interface PersistOptions<T> {
 
 /**
  * Saves are batched this long: a save rewrites the whole list (thousands of
- * entries), and scrolling or precaching changes it many times a second. Each
+ * entries), and scrolling or lookups change it many times a second. Each
  * build also saves right away when Discord closes or goes to the background.
  */
 const SAVE_DELAY_MS = 15_000;

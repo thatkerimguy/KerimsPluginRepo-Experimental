@@ -5,6 +5,12 @@ the rules that came out of these entries are in CLAUDE.md; how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
+**Removed on 2026-11-17: favourites precaching** (the user's call):
+- Why: it rarely helped in practice. GIFs that loaded once are already remembered for 14 days (`seen`: first in line, no spinner, from Discord's cache), so after one normal scroll through the favourites precaching added nothing. A big library (thousands of favourites, roughly 250-750 MB of previews) is more than Discord's cache keeps, so a run evicted its own downloads. On mobile it was never confirmed that Discord's tile reads the cache `Image.prefetch` fills, and desktop may only partly cache video previews. It cost bandwidth and cache churn.
+- Removed: `precache.ts` (`Precacher`, `usePrecacheUpdates`, `memoizedUrls`), desktop `precacheUi.tsx`, `hooks.ts` and the Favorites header patch (`renderPrecacheButton`), the precache rows in both builds' settings, the mobile favourites-only precache bar, `favoriteUrl(s)` / `precacheUrl`, the precache downloads, mobile `favoriteItems` / `shownSrc` (only precaching used them). "Precached" in the loader is now "seen before" (`wasSeen`, `seenBefore`): the cached indicator and queue priority stay, for GIFs loaded in an earlier session.
+- The saved precache list is deleted on start (desktop DataStore `GifPickerOptimizer_precached`, mobile `precache.json`).
+- Checks: both type checks, mobile build + pre-init check, 34 unit tests, the patch test (now 3 patches, 6 replacements, all match).
+
 **Changed on 2026-11-17 (third review + tech debt; not tried in Discord or on a device):**
 - Import is validated: only https entries (others are skipped and counted), GIFType 1/2 only, sizes capped at uint32, and GIFs from sites outside the known GIF hosts are listed in one confirmation before importing (`otherSitesWarning`), since a shared file could add tracking images or favourites that send a different link than they show. Tenor page lookups are https only.
 - Desktop: a tile shown from cache listens for its own `<img>` error instead of creating a probe image on every remount; `stop()` clears `apiPreviews`. Mobile: Discord's tile tree is searched once per render (`findInTree` / `replaceAt`), and the tree, Image and FlashList props are typed instead of `any`.

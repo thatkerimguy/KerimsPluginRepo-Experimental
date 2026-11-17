@@ -12,17 +12,15 @@ import { useEffect, useState } from "@webpack/common";
 
 import { formatBytes } from "./cache";
 import { describePatch, patchStatuses } from "./diagnostics";
-import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, PRECACHE_STORE_KEY, runtime, seen, SEEN_STORE_KEY } from "./state";
+import { apiPreviews, cl, failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, runtime, seen, SEEN_STORE_KEY } from "./state";
 import { FRAME_BUDGET_BYTES, frames } from "./stillFrames";
 
 function cacheStats() {
     const klipy = runtime.klipy?.stats() ?? { saved: 0, recent: 0, bytes: 0 };
-    const memory = loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight
-        + (runtime.precache?.approxBytes() ?? 0);
+    const memory = loaded.approxBytes() + seen.approxBytes() + apiPreviews.approxBytes() + failed.approxBytes() + klipy.bytes + frames.weight;
     return [
         { label: "Loaded GIFs remembered", value: `${loaded.size} of ${loaded.max}` },
         { label: "Loaded GIFs saved for next time", value: `${seen.size} of ${seen.max}` },
-        { label: "Precached GIFs", value: String(runtime.precache?.size ?? 0) },
         { label: "Klipy favourite lookups (saved)", value: `${klipy.saved}, plus ${klipy.recent} recent search results` },
         { label: "Search result previews", value: String(apiPreviews.size) },
         { label: "Previews that failed (saved for a week)", value: String(failed.size) },
@@ -40,14 +38,12 @@ function resetCaches() {
     // Its finished requests would otherwise count as "previews already there" for 5 minutes
     runtime.lowRes?.clear();
     frames.clear();
-    const { klipy, precache } = runtime;
-    if (klipy && precache) {
-        // Running: each clear also saves the empty list (seen and failed did above)
-        klipy.clear();
-        precache.clear();
+    if (runtime.klipy) {
+        // Running: clearing also saves the empty list (seen and failed did above)
+        runtime.klipy.clear();
     } else {
         // Stopped: nothing is attached to the saved lists, so delete them directly
-        for (const key of [KLIPY_STORE_KEY, PRECACHE_STORE_KEY, SEEN_STORE_KEY, FAILED_STORE_KEY]) void DataStore.del(key);
+        for (const key of [KLIPY_STORE_KEY, SEEN_STORE_KEY, FAILED_STORE_KEY]) void DataStore.del(key);
     }
 }
 
@@ -98,7 +94,7 @@ export function CacheSettings() {
                 Reset cache
             </Button>
             <Paragraph className={cl("cache-note")}>
-                Forgets loaded GIFs, previews, still frames, precached GIFs and the saved Klipy lookups. Discord's own image cache isn't touched.
+                Forgets loaded GIFs, previews, still frames and the saved Klipy lookups. Discord's own image cache isn't touched.
             </Paragraph>
         </section>
     );

@@ -29,7 +29,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
     const original = normalizeUrl(src);
     // Hooks passed at render time: @webpack/common fills them in only once Discord's React
     // loads, after this module is evaluated (a module-level copy would hold undefined)
-    const { phase, chosen, precached, setVisible, done: onDone, error: onError } = useTileLoader({ useState, useEffect, useRef }, tileEnv, {
+    const { phase, chosen, seenBefore, setVisible, done: onDone, error: onError } = useTileLoader({ useState, useEffect, useRef }, tileEnv, {
         original,
         index: rest.index,
         still,
@@ -64,7 +64,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                 onClick={click}
                 onContextMenu={contextMenu}
             >
-                {showProgress && <Indicator state={precached ? "cached" : phase === "resolving" ? "loading" : "queued"} />}
+                {showProgress && <Indicator state={seenBefore ? "cached" : phase === "resolving" ? "loading" : "queued"} />}
                 {rest.renderExtras?.(item)}
             </div>
         );
@@ -80,7 +80,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                 video={source.capture && (rest.format === GIF_TYPE_VIDEO || isVideoUrl(shown))}
                 loading={phase === "loading"}
                 showProgress={showProgress}
-                precached={precached}
+                seenBefore={seenBefore}
                 enter={!spinnerShown.current}
                 coords={coords}
                 onClick={click}
@@ -112,7 +112,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                             video={video}
                             loading={phase === "loading"}
                             showProgress={showProgress && phase === "loading"}
-                            precached={precached}
+                            seenBefore={seenBefore}
                             enter={!spinnerShown.current}
                             onDone={onDone}
                             onError={onError}

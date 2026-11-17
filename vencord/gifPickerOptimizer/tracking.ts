@@ -5,7 +5,6 @@
  */
 
 import { ApiPreviewCache, LoadedCache } from "./cache";
-import type { Precacher } from "./precache";
 import { LoadQueue, type Ticket } from "./queue";
 import { SavedUrlSet } from "./saved";
 import type { TileEnv } from "./tileLoader";
@@ -15,9 +14,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface TrackingOptions {
     /** How many loaded URLs `loaded` remembers at first (the cache size setting) */
     loadedSize: number;
-    /** The precacher, while the plugin runs */
-    precache(): Precacher | undefined;
-    /** Other saved caches to save with the lists in `flushSaved` (Klipy, Tenor, precache) */
+    /** Other saved caches to save with the lists in `flushSaved` (Klipy, Tenor) */
     savedCaches(): ({ flush(): void; } | undefined)[];
     onError(message: string, e: unknown): void;
 }
@@ -28,8 +25,8 @@ export function createTracking(o: TrackingOptions) {
     const loaded = new LoadedCache(o.loadedSize);
     /**
      * GIFs that finished loading, saved across restarts. After a restart their tiles
-     * go first in the queue without a spinner (like precached ones), since the files
-     * are probably still in the HTTP / native image cache.
+     * go first in the queue without a spinner, since the files are probably still in
+     * the HTTP / native image cache.
      */
     const seen = new SavedUrlSet(5000, 14 * DAY_MS);
     /** Preview URLs that failed, saved for a week so they aren't tried again after a restart */
@@ -52,15 +49,14 @@ export function createTracking(o: TrackingOptions) {
     const forgetLoaded = (url: string) => {
         loaded.delete(url);
         seen.delete(url);
-        o.precache()?.forget(url);
     };
 
     /**
-     * Whether `url` was precached or loaded in an earlier session. Its tile goes first
-     * in the queue without a spinner, but still takes a turn: the browser (or Fresco)
-     * may have evicted it from its cache since.
+     * Whether `url` loaded in an earlier session. Its tile goes first in the queue
+     * without a spinner, but still takes a turn: the browser (or Fresco) may have
+     * evicted it from its cache since.
      */
-    const isPrecached = (url: string | null | undefined) => !!o.precache()?.has(url) || seen.has(url);
+    const wasSeen = (url: string | null | undefined) => seen.has(url);
 
     const drop = (ticket: Ticket | null) => {
         if (!ticket) return;
@@ -73,7 +69,7 @@ export function createTracking(o: TrackingOptions) {
     const tileEnv: TileEnv = {
         queue,
         isCached,
-        isPrecached,
+        wasSeen,
         markLoaded,
         markFailed(url) {
             failed.add(url);
@@ -91,5 +87,5 @@ export function createTracking(o: TrackingOptions) {
         for (const cache of o.savedCaches()) cache?.flush();
     };
 
-    return { queue, loaded, seen, failed, apiPreviews, isCached, markLoaded, forgetLoaded, isPrecached, drop, isDropped, tileEnv, flushSaved };
+    return { queue, loaded, seen, failed, apiPreviews, isCached, markLoaded, forgetLoaded, wasSeen, drop, isDropped, tileEnv, flushSaved };
 }

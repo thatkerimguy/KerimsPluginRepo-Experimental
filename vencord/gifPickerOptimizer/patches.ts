@@ -51,11 +51,6 @@ export const patches: Omit<Patch, "plugin">[] = [
                 match: /(trendingCategories:(\i)\}=this\.props;return )0===\2\.length/,
                 replace: "$1$self.needsCategories($2)",
             },
-            {
-                // Precache button in the Favorites page header
-                match: /(case \i\.\i\.FAVORITES:return\(0,\i\.jsxs\)\("div",\{className:\i\.\i,children:\[)/,
-                replace: "$1$self.renderPrecacheButton(\"Favorites\",this.props.favorites),",
-            },
         ],
     },
 ];

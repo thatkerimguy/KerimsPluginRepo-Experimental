@@ -75,7 +75,7 @@
     animation: vc-gpo-breathe 1.6s ease-in-out infinite;
 }
 
-/* Precached: breathes as a circle, then morphs into a square and back (2.4 s loop) */
+/* Seen before: breathes as a circle, then morphs into a square and back (2.4 s loop) */
 .vc-gpo-shape {
     width: 10px;
     height: 10px;
@@ -320,31 +320,11 @@
     color: var(--text-muted);
 }
 
-/* After the title and search bar in the Favorites header */
-.vc-gpo-precache {
-    order: 9;
-    margin-left: auto;
-    flex-shrink: 0;
-    white-space: nowrap;
-}
-
 /* Favourites section in settings */
 .vc-gpo-settings-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-.vc-gpo-favorites-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.vc-gpo-favorites-row .vc-gpo-precache {
-    order: 0;
 }
 
 .vc-gpo-actions {

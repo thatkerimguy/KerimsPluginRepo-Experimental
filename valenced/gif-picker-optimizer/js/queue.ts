@@ -11,7 +11,8 @@
  * top to bottom" even though the rows of a masonry grid don't line up in pixels.
  *
  * Order: visible tickets first (with `prioritizeVisible`), then `priority` ones
- * (precached GIFs, which normally come straight from the cache), then by index.
+ * (GIFs seen in an earlier session, which normally come straight from the cache),
+ * then by index.
  *
  * Waiting tickets are kept in a binary heap, so starting one costs O(log n)
  * instead of a scan over every waiting tile (thousands with a big favourites
@@ -25,8 +26,8 @@ export interface Ticket {
     /** Whether the tile is on screen right now */
     visible: boolean;
     /**
-     * Goes before the other tickets with the same visibility. Set for precached
-     * GIFs: they usually load from the cache in an instant, so they shouldn't
+     * Goes before the other tickets with the same visibility. Set for GIFs seen
+     * in an earlier session: they usually load from the cache in an instant, so they shouldn't
      * wait behind downloads, but still take a turn in case the cache dropped them.
      */
     priority?: boolean;

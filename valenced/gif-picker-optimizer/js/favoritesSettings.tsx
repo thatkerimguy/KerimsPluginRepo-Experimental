@@ -2,7 +2,7 @@
 /** @jsx valenced.react.React.createElement */
 /** @jsxFrag valenced.react.React.Fragment */
 /*
- * The Favourites settings section: precache favourites, and export / import
+ * The Favourites settings section: export / import
  * them between accounts (through the clipboard).
  */
 
@@ -10,8 +10,8 @@ import { Design } from "@valenced/discord/design";
 import { Clipboard } from "@valenced/externals/react-native-clipboard";
 import { Share } from "react-native";
 
-import { favoriteItems, favoritesBackend } from "./favorites";
-import { openConfirmAlert, PrecacheButton, precacheStats, toast, usePrecacheUpdates } from "./favoritesUi";
+import { favoritesBackend } from "./favorites";
+import { openConfirmAlert, toast } from "./favoritesUi";
 import { runtime } from "./state";
 import type { ImportMode } from "./transfer";
 import type { ParsedExport } from "./transfer";
@@ -27,7 +27,7 @@ async function exportToClipboard() {
         return;
     }
     Clipboard.setString(json);
-    toast(`Copied ${plural(favoriteItems().length)} to the clipboard`);
+    toast(`Copied ${plural(Object.keys(favoritesBackend.read() ?? {}).length)} to the clipboard`);
     try {
         await Share.share({ message: json, title: "GIFs+ favourites" });
     } catch { }
@@ -77,23 +77,18 @@ async function importFromClipboard(mode: ImportMode) {
 export function FavoritesSection() {
     // Read on render: Discord's design module isn't loaded when the script is evaluated (lazy.ts)
     const { TableRow, TableRowGroup } = Design;
-    usePrecacheUpdates();
-    const ready = !!runtime.precache;
-    const favorites = favoriteItems();
+    // Discord's favourites are found a moment after the plugin starts
+    const ready = !!runtime.frecency;
+    const count = Object.keys(favoritesBackend.read() ?? {}).length;
 
     return (
         <TableRowGroup
             title="Favourites"
-            description="Precaching downloads all your favourites now, so the favourites tab shows them at once. Export and import move your favourites to another account: export on one, copy the text, then import on the other."
+            description="Export and import move your favourites to another account: export on one, copy the text, then import on the other."
         >
             <TableRow
-                label="Favorites"
-                subLabel={ready ? precacheStats(favorites) : "Enable the plugin to precache"}
-                trailing={<PrecacheButton label="Favorites" items={favorites} />}
-            />
-            <TableRow
                 label="Export favourites"
-                subLabel="Copies all favourites to the clipboard"
+                subLabel={ready ? `Copies all ${plural(count)} to the clipboard` : "Enable the plugin, then open the GIF picker once"}
                 disabled={!ready}
                 onPress={() => void exportToClipboard()}
             />

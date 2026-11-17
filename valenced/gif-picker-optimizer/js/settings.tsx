@@ -51,7 +51,7 @@ function CacheSection() {
                 : <TableRow label="Enable the plugin to see its cache" />}
             <TableRow
                 label="Reset cache"
-                subLabel="Forgets loaded GIFs, previews, precached GIFs and the saved Klipy and Tenor lookups. Discord's own image cache isn't touched."
+                subLabel="Forgets loaded GIFs, previews and the saved Klipy and Tenor lookups. Discord's own image cache isn't touched."
                 variant="danger"
                 disabled={!reset}
                 onPress={() => {

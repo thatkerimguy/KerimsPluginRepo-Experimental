@@ -30,8 +30,8 @@ export interface TileEnv {
     queue: LoadQueue;
     /** Loaded this session: shown at once without a turn in the queue */
     isCached(url: string): boolean;
-    /** Precached or loaded in an earlier session: first in the queue, no spinner */
-    isPrecached(url: string): boolean;
+    /** Loaded in an earlier session: first in the queue, no spinner */
+    wasSeen(url: string): boolean;
     markLoaded(url: string): void;
     /** A URL that failed: remembered as failed and forgotten as loaded */
     markFailed(url: string): void;
@@ -73,18 +73,18 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
     const optsRef = useRef(opts);
     optsRef.current = opts;
 
-    // The first pick decides the first render (cached, precached), and the queue reuses it
+    // The first pick decides the first render (cached, seen before), and the queue reuses it
     const [initial] = useState(() => {
         const url = opts.pick();
         const cached = env.isCached(url);
-        return { url, cached, precached: !cached && env.isPrecached(url) };
+        return { url, cached, seenBefore: !cached && env.wasSeen(url) };
     });
     const firstPick = useRef<string | null>(initial.cached ? null : initial.url);
     /** The URL being shown or loaded, null until the tile's turn */
     const [chosen, setChosen] = useState<string | null>(initial.cached ? initial.url : null);
     const [phase, setPhase] = useState<Phase>(initial.cached ? "done" : "queued");
-    /** Set before the first paint, so precached tiles never flash the queued dot */
-    const [precached, setPrecached] = useState(initial.precached);
+    /** Loaded in an earlier session. Set before the first paint, so these tiles never flash the queued dot. */
+    const [seenBefore, setSeenBefore] = useState(initial.seenBefore);
     const [progress, setProgress] = useState<number | null>(null);
 
     const ticketRef = useRef<Ticket | null>(null);
@@ -122,8 +122,8 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
             setPhase("done");
             return;
         }
-        const priority = env.isPrecached(url);
-        setPrecached(priority);
+        const priority = env.wasSeen(url);
+        setSeenBefore(priority);
 
         let started = false;
         const begin = () => {
@@ -253,5 +253,5 @@ export function useTileLoader(react: ReactHooks, env: TileEnv, opts: TileLoaderO
         if (phase === "loading" && total > 0) setProgress(loadedBytes / total);
     };
 
-    return { phase, chosen, precached, progress, setVisible, done, error, reportProgress };
+    return { phase, chosen, seenBefore, progress, setVisible, done, error, reportProgress };
 }

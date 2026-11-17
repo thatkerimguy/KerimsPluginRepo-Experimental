@@ -8,8 +8,7 @@
 import { GIFPickerViewStore, LocaleStore, RestAPI } from "@webpack/common";
 
 import { patchWorks } from "./diagnostics";
-import { LowResPages, wait } from "./klipy";
-import { memoizedUrls } from "./precache";
+import { LowResPages } from "./klipy";
 import { isKlipyUrl, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl } from "./lowres";
 import { quality, settings } from "./settings";
 import { apiPreviews, failed, logger, queue, runtime } from "./state";
@@ -98,28 +97,4 @@ export function pickStill(item: GifItem, src: string): StillSource {
     const frame = stillUrl(normalizeUrl(src), quality(), item);
     if (frame && !failed.has(frame)) return { url: frame, capture: false };
     return { url: pickSrc(item, src), capture: true };
-}
-
-/** The URL a favourite's tile downloads in the favourites tab */
-export function favoriteUrl(item: GifItem) {
-    return settings.store.stillFavorites ? pickStill(item, item.src).url : pickSrc(item, item.src);
-}
-
-/**
- * `favoriteUrl` for every item, kept per list and only worked out again when
- * something it depends on changed (quality, still favourites, Klipy lookups,
- * failed previews). Precache counts re-render often during a run.
- */
-export function favoriteUrls(items: GifItem[]): string[] {
-    return memoizedUrls(items, `${quality()}|${settings.store.stillFavorites}|${runtime.klipy?.version ?? 0}|${failed.version}`, favoriteUrl);
-}
-
-/** Longest a precache waits for a Klipy lookup */
-const PRECACHE_LOOKUP_MS = 8000;
-
-/** Resolves the URL a favourite's tile will show, looking up its small version first if needed */
-export async function precacheUrl(item: GifItem) {
-    const lookup = klipyLookupFor(item, item.src);
-    if (lookup) await Promise.race([lookup, wait(PRECACHE_LOOKUP_MS)]).catch(() => { });
-    return favoriteUrl(item);
 }

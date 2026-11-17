@@ -6,8 +6,7 @@
 import { Stores } from "@valenced/discord/flux";
 
 import { favoritesBackend } from "./favorites";
-import { LowResPages, wait } from "./klipy";
-import { memoizedUrls } from "./precache";
+import { LowResPages } from "./klipy";
 import { isKlipyUrl, isTenorPageGif, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
 import { getSettings } from "./settingsStore";
 import type { GifItem } from "./state";
@@ -115,37 +114,4 @@ export function pickSrc(item: GifItem, still = false): string {
     } catch {
         return original;
     }
-}
-
-/** The URL a favourite's tile shows (what precaching downloads) */
-export function favoriteUrl(item: GifItem): string {
-    return pickSrc(item, getSettings().stillFavorites && isFavoriteItem(item));
-}
-
-/**
- * `favoriteUrl` for every item, kept per list and only worked out again when
- * something it depends on changed (quality, still favourites, lookups, failed
- * previews). Precache counts re-render often during a run.
- */
-export function favoriteUrls(items: GifItem[]): string[] {
-    const { quality, stillFavorites } = getSettings();
-    const key = [
-        quality,
-        stillFavorites,
-        runtime.klipy?.version ?? 0,
-        runtime.tenorPages?.version ?? 0,
-        failed.version,
-        favoritesBackend.read() ? 1 : 0,
-    ].join("|");
-    return memoizedUrls(items, key, favoriteUrl);
-}
-
-/** Longest a precache job waits for a Klipy or Tenor lookup */
-const PRECACHE_LOOKUP_MS = 8000;
-
-/** Looks the small version up first (Klipy, Tenor pages), then gives the URL to download */
-export async function precacheUrl(item: GifItem): Promise<string> {
-    const lookup = lookupFor(item);
-    if (lookup) await Promise.race([lookup.catch(() => { }), wait(PRECACHE_LOOKUP_MS)]);
-    return favoriteUrl(item);
 }

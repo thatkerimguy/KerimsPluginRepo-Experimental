@@ -1,5 +1,5 @@
 /*
- * Saving to disk: SavedUrlSet, Precacher, KlipyResolver and TenorPageResolver on
+ * Saving to disk: SavedUrlSet, KlipyResolver and TenorPageResolver on
  * top of Persisted (load merge, batched saves, nothing saved before the load,
  * clear / detach while loading).
  */
@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 
 import { KlipyResolver } from "../../vencord/gifPickerOptimizer/klipy.ts";
-import { Precacher } from "../../vencord/gifPickerOptimizer/precache.ts";
 import { SavedUrlSet } from "../../vencord/gifPickerOptimizer/saved.ts";
 import { TenorPageResolver } from "../../valenced/gif-picker-optimizer/js/tenor.ts";
 
@@ -77,36 +76,6 @@ test("SavedUrlSet: clear / detach during a load, throwing load, expiry", async (
         const s4 = new SavedUrlSet(10, 1000);
         s4.attach({ load: async () => [["old", now() - 5000], ["new", now()]], save: () => { } }); await tick();
         assert.equal(s4.has("old"), false); assert.equal(s4.has("new"), true);
-
-    } finally {
-        mock.timers.reset();
-    }
-});
-
-test("Precacher: load merge, run, clear, stop", async () => {
-    mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000_000 });
-    try {
-        const d = deferred<string[] | undefined>();
-        const saves: string[][] = [];
-        const p = new Precacher({ fetch: async () => true, load: () => d.promise, save: u => saves.push(u) });
-        let notified = 0; p.subscribe(() => notified++);
-        p.mark("session");
-        mock.timers.tick(5000); assert.equal(saves.length, 0);
-        d.resolve(["saved1", "saved2", 3 as any]); await tick();
-        assert.ok(p.has("saved1") && p.has("session") && !p.has(3 as any)); assert.ok(notified >= 1);
-        mock.timers.tick(15000);
-        assert.deepEqual(saves[0], ["saved1", "saved2", "session"]);
-        const run = p.start("Favorites", [() => "a", async () => "b", () => null]);
-        await tick(); await tick();
-        const res = await run;
-        assert.equal(res.done, 3); assert.equal(res.failed, 1); assert.ok(p.has("a") && p.has("b"));
-        p.clear(); assert.deepEqual(saves.at(-1), []);
-        p.mark("z"); p.stop(); assert.deepEqual(saves.at(-1), ["z"]);
-        p.mark("after-stop"); mock.timers.tick(5000); assert.deepEqual(saves.at(-1), ["z"]);
-        // clear during load
-        const d2 = deferred<string[] | undefined>(); const s2: any[] = [];
-        const p2 = new Precacher({ fetch: async () => true, load: () => d2.promise, save: u => s2.push(u) });
-        p2.clear(); d2.resolve(["stale"]); await tick(); assert.equal(p2.has("stale"), false); assert.deepEqual(s2, [[]]);
 
     } finally {
         mock.timers.reset();

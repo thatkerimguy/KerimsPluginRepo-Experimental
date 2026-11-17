@@ -11,7 +11,7 @@ npm test
 npm run test:patches
 ```
 
-- `npm test` runs `tests/unit`: the shared files (queue, URL rewrites, saving, import/export with its validation, low-res pages, the patch diagnostics), the shared tile loader with React (order, precached first render, still toggle, a tile losing its Image mid-lookup, error fallback, native cache), and the Vencord module-level check (no `@webpack/common` value read when the plugin loads).
+- `npm test` runs `tests/unit`: the shared files (queue, URL rewrites, saving, import/export with its validation, low-res pages, the patch diagnostics), the shared tile loader with React (order, seen-before tiles on the first render, still toggle, a tile losing its Image mid-lookup, error fallback, native cache), and the Vencord module-level check (no `@webpack/common` value read when the plugin loads).
 - `npm run test:patches` downloads Discord's current datamined code (github.com/Wumpus-Central/discrapper-canary) and checks that every Vencord patch still finds its module, matches exactly once and leaves valid code. Set `DISCORD_REF` to test against an older datamine commit. When a find string moved to another chunk, search the datamine for it and update `CHUNKS` in `tests/patches/patches.test.ts`.
 - Shared files: `node .github/scripts/sync-shared.mjs --check`.
 
@@ -34,9 +34,8 @@ First, open the plugin's settings → **Patches**. Do what each "not seen yet" l
 7. Restart Discord, open the favourites: GIFs seen before show the morphing shape (no dot first) and load first.
 8. Settings → Still favourites on: favourites show still images; clicking one sends the animated GIF. Turn it off with the picker closed and open it again: everything loads.
 9. Favourites only: the main page shows search and Favorites, no Trending.
-10. Precache the favourites; open the Favorites tab: no spinners. Reset the cache: they load in order again.
-11. Export the favourites, import the file with merge (toast shows the counts) and with replace (asks first). Import a file with a GIF from another site: it lists that site and asks before importing.
-12. Change "GIFs loading at the same time" with the picker open: the next tiles follow the new number.
+10. Export the favourites, import the file with merge (toast shows the counts) and with replace (asks first). Import a file with a GIF from another site: it lists that site and asks before importing.
+11. Change "GIFs loading at the same time" with the picker open: the next tiles follow the new number.
 
 ### Mobile
 

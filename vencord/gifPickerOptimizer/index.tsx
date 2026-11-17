@@ -8,7 +8,7 @@
  *   sending and favouriting the original, full resolution GIF.
  * - Remembers which GIFs loaded (also across restarts), so they show again
  *   without waiting in the queue, and big favourite libraries stay smooth.
- * - Precaches favourites, and exports / imports them.
+ * - Exports / imports favourites.
  * - Optionally shows still (not animated) previews in the favourites tab.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -20,18 +20,15 @@ import definePlugin from "@utils/types";
 import { LocaleStore, RestAPI } from "@webpack/common";
 
 import { clearPatches, expectPatch } from "./diagnostics";
-import { precacheOptions } from "./favorites";
 import { featured, mountCategories, needsCategories } from "./favoritesOnly";
 import { FavoritesSettings } from "./FavoritesSettings";
 import { KlipyResolver } from "./klipy";
-import { Precacher } from "./precache";
 import { patches } from "./patches";
-import { renderPrecacheButton } from "./precacheUi";
 import { createLowResPages, lowResStarted } from "./previews";
 import type { UrlListStore } from "./saved";
 import { SequentialResult } from "./SequentialResult";
 import { applyQueueSettings, onConnectionChange, settings } from "./settings";
-import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
+import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, OLD_PRECACHE_STORE_KEY, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
 import { frames } from "./stillFrames";
 import managedStyle from "./styles.css?managed";
 import type { GifItem } from "./types";
@@ -56,7 +53,7 @@ function savedList(key: string): UrlListStore {
 
 export default definePlugin({
     name: PLUGIN_NAME,
-    description: "A better GIF picker: one-by-one loading with low resolution previews, instant reloads of GIFs seen before, precaching and exporting / importing favourites. Sends the full resolution GIF.",
+    description: "A better GIF picker: one-by-one loading with low resolution previews, instant reloads of GIFs seen before, and exporting / importing favourites. Sends the full resolution GIF.",
     authors: [{ name: "thatkerimguy", id: 0n }],
     settings,
     managedStyle,
@@ -75,14 +72,12 @@ export default definePlugin({
     lowResStarted,
     mountCategories,
     needsCategories,
-    renderPrecacheButton,
 
     start() {
         // Patches are seen working when the code they call runs (diagnostics.ts, shown in settings)
         expectPatch("results", "GIF tiles (one by one, previews)", "open the GIF picker");
         expectPatch("searchActions", "Early low resolution requests", "search for GIFs or open Trending");
         expectPatch("categories", "Main page categories (Favourites only)", "open the GIF picker's main page");
-        expectPatch("favoritesHeader", "Precache button in Favorites", "open the Favorites category");
         loaded.resize(settings.store.cacheSize);
         seen.attach(savedList(SEEN_STORE_KEY));
         failed.attach(savedList(FAILED_STORE_KEY));
@@ -99,7 +94,8 @@ export default definePlugin({
             save: entries => void DataStore.set(KLIPY_STORE_KEY, entries),
             onError: e => logger.warn("Klipy favourite lookup failed", e),
         });
-        runtime.precache = new Precacher(precacheOptions);
+        // Precaching was removed: drop its saved list
+        void DataStore.del(OLD_PRECACHE_STORE_KEY);
         runtime.lowRes = createLowResPages();
         applyQueueSettings();
         stopWatchingConnection = onConnectionChange(applyQueueSettings);
@@ -116,8 +112,6 @@ export default definePlugin({
         failed.detach();
         runtime.klipy?.stop();
         runtime.klipy = undefined;
-        runtime.precache?.stop();
-        runtime.precache = undefined;
         runtime.lowRes?.clear();
         runtime.lowRes = undefined;
         disconnectWatchers();

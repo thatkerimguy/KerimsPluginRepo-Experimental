@@ -1,6 +1,5 @@
 /*
- * The Favourites section of the plugin's settings: precache favourites, and
- * export / import them.
+ * The Favourites section of the plugin's settings: export / import favourites.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -12,9 +11,7 @@ import { chooseFile, saveFile } from "@utils/web";
 import { Alerts, showToast } from "@webpack/common";
 
 import { favoriteItems, favoritesBackend } from "./favorites";
-import { usePrecacheUpdates } from "./hooks";
-import { PrecacheButton, precacheStats } from "./precacheUi";
-import { cl, runtime } from "./state";
+import { cl } from "./state";
 import { exportFavorites, importFavorites, type ImportMode, importSummary, otherSitesWarning, type ParsedExport, parseExport } from "./transfer";
 
 async function readJsonFile(): Promise<string | null> {
@@ -77,23 +74,14 @@ async function importFromFile(mode: ImportMode) {
 }
 
 export function FavoritesSettings() {
-    usePrecacheUpdates();
-    if (!runtime.precache) {
-        return <Paragraph className={cl("muted")}>Enable the plugin to precache, export or import favourites.</Paragraph>;
-    }
-
+    // Works with the plugin off too: it only goes through Discord's own favourites
     const favorites = favoriteItems();
 
     return (
         <section className={cl("settings-section")}>
             <Heading>Favourites</Heading>
-            <div className={cl("favorites-row")}>
-                <Paragraph className={cl("muted")}>{precacheStats(favorites)}</Paragraph>
-                <PrecacheButton label="Favorites" items={favorites} />
-            </div>
             <Paragraph className={cl("muted")}>
-                Precaching downloads the previews of all your favourites now, so the Favorites tab shows them at once.
-                Export saves your favourites to a file, to keep or move to another account. Merge adds the file's GIFs
+                {favorites.length} favourite GIF{favorites.length === 1 ? "" : "s"}. Export saves your favourites to a file, to keep or move to another account. Merge adds the file's GIFs
                 to your favourites; replace swaps your favourites for the file's.
             </Paragraph>
             <div className={cl("actions")}>

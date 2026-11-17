@@ -16,7 +16,6 @@ export const SHARED = [
     "klipy.ts",
     "lowres.ts",
     "persist.ts",
-    "precache.ts",
     "queue.ts",
     "saved.ts",
     "tileLoader.ts",

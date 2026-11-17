@@ -55,7 +55,7 @@ export interface ItemProps {
 /**
  * - queued: a breathing dot
  * - loading: the dot swells into a spinner, which squashes into a progress line once progress is known
- * - cached (precached / seen, normally straight from the cache): a breathing circle that morphs into a square and back
+ * - cached (seen in an earlier session, normally straight from the cache): a breathing circle that morphs into a square and back
  * Same shapes and timings as the desktop indicator (vencord styles.css).
  */
 type IndicatorState = "queued" | "loading" | "cached";
@@ -292,7 +292,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     const hasImage = imagePath != null;
 
     // Tiles that scroll away are unmounted (and recycled) by Discord's FlashList
-    const { phase, chosen, precached, progress, setVisible, done, error, reportProgress } = useTileLoader(
+    const { phase, chosen, seenBefore, progress, setVisible, done, error, reportProgress } = useTileLoader(
         // React itself, not `{ useState, ... }`: the build rewrites React names even as object keys
         React,
         tileEnv,
@@ -318,7 +318,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
 
         // One Indicator at the same place in the frame from queued to loaded, so it animates between states
         const indicatorState = !showProgress || phase === "done" ? null
-            : precached ? "cached"
+            : seenBefore ? "cached"
             : phase === "queued" ? "queued"
             : "loading";
         const indicator = indicatorState && <Indicator state={indicatorState} progress={phase === "loading" ? progress : null} />;

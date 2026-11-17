@@ -6,7 +6,6 @@ import type { DiscordModules } from "@valenced/discord/types";
 
 import type { GifRef } from "./cache";
 import type { KlipyResolver, LowResPages } from "./klipy";
-import type { Precacher } from "./precache";
 import type { Settings } from "./settingsStore";
 import { DefaultSettings } from "./settingsStore";
 import type { TenorPageResolver } from "./tenor";
@@ -47,18 +46,16 @@ export const runtime: {
     /** Resolves Tenor favourites shown as page URLs */
     tenorPages?: TenorPageResolver;
     frecency?: FrecencyActions;
-    precache?: Precacher;
     /** Low resolution search / trending requests started alongside Discord's */
     lowRes?: LowResPages;
 } = {};
 
 export const {
     queue, loaded, seen, failed, apiPreviews,
-    isCached, markLoaded, forgetLoaded, isPrecached, drop, isDropped, tileEnv, flushSaved,
+    isCached, markLoaded, forgetLoaded, wasSeen, drop, isDropped, tileEnv, flushSaved,
 } = createTracking({
     loadedSize: DefaultSettings.cacheSize,
-    precache: () => runtime.precache,
-    savedCaches: () => [runtime.klipy, runtime.tenorPages, runtime.precache],
+    savedCaches: () => [runtime.klipy, runtime.tenorPages],
     onError: (message, e) => runtime.logger?.error?.(message, e),
 });
 

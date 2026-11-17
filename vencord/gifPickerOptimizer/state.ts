@@ -9,7 +9,6 @@ import { Logger } from "@utils/Logger";
 import type { ReactNode } from "react";
 
 import type { KlipyResolver, LowResPages } from "./klipy";
-import type { Precacher } from "./precache";
 import { createTracking } from "./tracking";
 
 export const PLUGIN_NAME = "GIFs+";
@@ -20,7 +19,8 @@ export const logger = new Logger(PLUGIN_NAME);
 export const cl = classNameFactory("vc-gpo-");
 
 export const KLIPY_STORE_KEY = "GifPickerOptimizer_klipyPreviews";
-export const PRECACHE_STORE_KEY = "GifPickerOptimizer_precached";
+/** Precached URLs, before precaching was removed (deleted on start) */
+export const OLD_PRECACHE_STORE_KEY = "GifPickerOptimizer_precached";
 export const SEEN_STORE_KEY = "GifPickerOptimizer_seen";
 export const FAILED_STORE_KEY = "GifPickerOptimizer_failed";
 
@@ -28,7 +28,6 @@ export const FAILED_STORE_KEY = "GifPickerOptimizer_failed";
 export const runtime: {
     /** Looks up small versions of Klipy favourites */
     klipy?: KlipyResolver;
-    precache?: Precacher;
     /** Small previews for search / trending pages, requested alongside Discord's */
     lowRes?: LowResPages;
 } = {};
@@ -41,10 +40,9 @@ export const settingsPanels: { favorites?: () => ReactNode; } = {};
 
 export const {
     queue, loaded, seen, failed, apiPreviews,
-    isCached, markLoaded, forgetLoaded, isPrecached, drop, isDropped, tileEnv, flushSaved,
+    isCached, markLoaded, forgetLoaded, wasSeen, drop, isDropped, tileEnv, flushSaved,
 } = createTracking({
     loadedSize: 1000,
-    precache: () => runtime.precache,
-    savedCaches: () => [runtime.klipy, runtime.precache],
+    savedCaches: () => [runtime.klipy],
     onError: (message, e) => logger.error(message, e),
 });
