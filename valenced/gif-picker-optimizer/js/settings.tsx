@@ -208,6 +208,12 @@ export default function SettingsComponent({ api: { jsonStorage: storage } }: Pro
                             value={s.fastTabSwitch}
                             onValueChange={(fastTabSwitch: boolean) => update({ fastTabSwitch })}
                         />
+                        <TableSwitchRow
+                            label={TEXT.viewportBuffer.title}
+                            subLabel={TEXT.viewportBuffer.description}
+                            value={s.viewportBuffer}
+                            onValueChange={(viewportBuffer: boolean) => update({ viewportBuffer })}
+                        />
                     </TableRowGroup>
 
                     <FavoritesSection />

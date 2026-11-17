@@ -10,6 +10,7 @@ and tests ran.
 **Changed on 2026-11-17 (mobile: tiles popping in blank while scrolling; not tried on a device):**
 - User report: while scrolling, a whole tile (GIF and grey box) disappears and comes back. It happens with GIFs+ off too, so it's Discord's list: its MasonryFlashList only renders about one row past the screen edge (`drawDistance` = `GIF_PICKER_ITEM_ESIMTATED_HEIGHT`, 180) and recycles tiles as soon as they leave it, so tiles reach the screen before they're rendered.
 - `OptimizedResultsList` (viewport.tsx) now sets `drawDistance` to at least 540 px (`DRAW_DISTANCE`, three rows). Visible-first order still comes from `onViewableItemsChanged`, so the extra tiles only queue behind the on-screen ones.
+- It's a setting, **Viewport buffer** (mobile, GIF picker section, on by default; `viewportBuffer`). Off leaves Discord's draw distance alone.
 
 ## 1.7.1 (2026-11-17)
 

@@ -35,6 +35,7 @@ export const TEXT = {
     showProgress: { title: "Loading indicators", description: "A dot, spinner or progress line on GIFs that haven't loaded yet." },
     favoritesOnly: { title: "Favourites only", description: "Hide Trending and the featured categories on the picker's main page. Search and Favorites stay." },
     fastTabSwitch: { title: "Faster GIF tab switch", description: "Open the GIF tab at once and build the picker right after, instead of freezing." },
+    viewportBuffer: { title: "Viewport buffer", description: "Prepare GIFs about three rows past the screen edge, so they don't pop in blank while you scroll. Uses a little more memory." },
     cacheSize: { title: "Remembered GIFs", description: "Loaded GIFs that show at once when you scroll back to them." },
     restoreDefaults: { title: "Restore default settings", description: "Puts every setting above back to how it was when you installed the plugin. Your favourites and the cache aren't touched." },
     resetCache: { title: "Reset cache", description: "Forgets loaded GIFs, previews and lookups. Discord's own image cache isn't touched." },

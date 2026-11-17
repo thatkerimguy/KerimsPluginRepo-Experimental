@@ -10,7 +10,8 @@
  * tiles that scroll away. Its `viewedItemIndexes` only picks placeholder vs real
  * tile for mounted ones. The plugin used to also "park" tiles far outside the
  * visible range; FlashList had unmounted those already, so that was removed.
- * It does widen `drawDistance` (DRAW_DISTANCE), so tiles are rendered before they scroll in.
+ * With the Viewport buffer setting it widens `drawDistance` (DRAW_DISTANCE), so tiles
+ * are rendered before they scroll in.
  */
 
 import type { ReactElement, ReactNode } from "react";
@@ -85,6 +86,7 @@ interface FlashListProps {
  * row (GIF_PICKER_ITEM_ESIMTATED_HEIGHT, 180), so when scrolling outpaces rendering,
  * tiles at the edge show up blank (not even the grey box) and pop in. Three rows keeps
  * them ready. The extra tiles only queue: on-screen GIFs still load first.
+ * Used while the Viewport buffer setting is on.
  */
 const DRAW_DISTANCE = 540;
 
@@ -97,7 +99,7 @@ const isFlashList = (n: unknown): n is ReactElement<FlashListProps> =>
 export function OptimizedResultsList({ props, render }: { props: ResultsListProps; render: (p: ResultsListProps) => ReactNode; }) {
     const store = useMemo(() => new ViewportStore(), []);
     const settings = useSettings();
-    const { cacheSize, sequential, concurrency } = settings;
+    const { cacheSize, sequential, concurrency, viewportBuffer } = settings;
     useEffect(() => {
         if (loadedThisSession.max !== cacheSize) loadedThisSession.resize(cacheSize);
     }, [cacheSize]);
@@ -114,10 +116,9 @@ export function OptimizedResultsList({ props, render }: { props: ResultsListProp
 
     const [result, hit] = replaceInTree(tree, isFlashList, list => {
         originalCallback.current = list.props.onViewableItemsChanged ?? null;
-        return cloneElement(list, {
-            onViewableItemsChanged,
-            drawDistance: Math.max(list.props.drawDistance ?? 0, DRAW_DISTANCE),
-        });
+        return cloneElement(list, viewportBuffer
+            ? { onViewableItemsChanged, drawDistance: Math.max(list.props.drawDistance ?? 0, DRAW_DISTANCE) }
+            : { onViewableItemsChanged });
     });
 
     if (hit) patchWorks("resultsList");

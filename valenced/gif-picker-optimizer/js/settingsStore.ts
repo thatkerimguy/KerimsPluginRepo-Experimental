@@ -18,6 +18,8 @@ export interface Settings {
     fastTabSwitch: boolean;
     /** When not searching, show favourites instead of Trending and the other featured categories */
     favoritesOnly: boolean;
+    /** Render tiles about three rows past the screen edge instead of Discord's one (viewport.tsx) */
+    viewportBuffer: boolean;
 }
 
 // `unloadOffscreen` and `offscreenBuffer` (before 1.6.0) may still be in saved settings. They're ignored.
@@ -35,6 +37,7 @@ export const DefaultSettings: Settings = {
     stillFavorites: false,
     fastTabSwitch: true,
     favoritesOnly: false,
+    viewportBuffer: true,
 };
 
 /** Set by the plugin while it runs, so settings can show its cache and reset it */

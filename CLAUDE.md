@@ -194,6 +194,7 @@ A preview is only used if it's the same media type as the original (video stays 
 | stillFavorites | off |
 | favoritesOnly | off |
 | fastTabSwitch (mobile only) | on |
+| viewportBuffer (mobile only) | on (`drawDistance` ≥ 540 px instead of Discord's 180, in `OptimizedResultsList`) |
 
 Desktop quality also has `auto` (S, or SD at `devicePixelRatio >= 2`), not the default. Mobile defaults are the same except concurrency 3 (no Auto), and no `prioritizeVisible` (always on). Mobile quality is `s` (was `xs` before the 1.6.0 follow-up).
 
