@@ -36,6 +36,8 @@ function resetCaches() {
     seen.clear();
     failed.clear();
     apiPreviews.clear();
+    // Its finished requests would otherwise count as "previews already there" for 5 minutes
+    runtime.lowRes?.clear();
     frames.clear();
     const { klipy, precache } = runtime;
     if (klipy && precache) {

@@ -30,6 +30,8 @@ export function resetCaches() {
     seen.clear();
     failed.clear();
     apiPreviews.clear();
+    // Its finished requests would otherwise count as "previews already there" for 5 minutes
+    runtime.lowRes?.clear();
     runtime.klipy?.clear();
     runtime.tenorPages?.clear();
     runtime.precache?.clear();

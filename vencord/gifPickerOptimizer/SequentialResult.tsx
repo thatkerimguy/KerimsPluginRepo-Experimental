@@ -15,11 +15,9 @@ import { isVideoUrl, normalizeUrl, stillUrl } from "./lowres";
 import { isFavoritesTile, klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
 import { quality, settings } from "./settings";
 import { cl, tileEnv } from "./state";
-import { type ReactHooks, useTileLoader } from "./tileLoader";
+import { useTileLoader } from "./tileLoader";
 import { GIF_TYPE_VIDEO, type GifItem, type ResultProps } from "./types";
 import { useViewport } from "./viewport";
-
-const hooks: ReactHooks = { useState, useEffect, useRef };
 
 function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
     const { item, src, coords } = rest;
@@ -27,7 +25,9 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
 
     const still = stillFavorites && isFavoritesTile(resultType, item);
     const original = normalizeUrl(src);
-    const { phase, chosen, precached, setVisible, done: onDone, error: onError } = useTileLoader(hooks, tileEnv, {
+    // Hooks passed at render time: @webpack/common fills them in only once Discord's React
+    // loads, after this module is evaluated (a module-level copy would hold undefined)
+    const { phase, chosen, precached, setVisible, done: onDone, error: onError } = useTileLoader({ useState, useEffect, useRef }, tileEnv, {
         original,
         index: rest.index,
         still,
