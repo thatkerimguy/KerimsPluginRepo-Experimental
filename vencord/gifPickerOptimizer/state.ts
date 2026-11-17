@@ -18,7 +18,7 @@ export const PLUGIN_NAME = "GIFs+";
  * This build's version, the same as the Valenced manifest's (a test checks). When it
  * differs from the one that saved the caches, they're cleared (invalidation.ts).
  */
-export const PLUGIN_VERSION = "1.7.1";
+export const PLUGIN_VERSION = "1.7.2";
 /** The plugin's name before 1.6.0, to carry its settings over */
 export const OLD_PLUGIN_NAME = "GifPickerOptimizer";
 

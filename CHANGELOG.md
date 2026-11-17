@@ -5,7 +5,12 @@ the rules that came out of these entries are in CLAUDE.md; how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
-## Unreleased
+## 1.7.2 (2026-11-17)
+
+- Mobile: **Viewport buffer** setting (on by default): GIFs are prepared about three rows past the screen edge, so they don't pop in blank while you scroll.
+- Mobile: turning GIFs+ on or off asks for a reload, so the GIF picker is patched cleanly.
+- Mobile: right after Discord starts, the main page waits for your saved settings, so Favourites only applies from the first open; the other settings apply once they're read too.
+- Both: changing a GIFs+ setting or updating to another version clears what the plugin remembers.
 
 **Changed on 2026-11-17 (mobile: tiles popping in blank while scrolling; not tried on a device):**
 - User report: while scrolling, a whole tile (GIF and grey box) disappears and comes back. It happens with GIFs+ off too, so it's Discord's list: its MasonryFlashList only renders about one row past the screen edge (`drawDistance` = `GIF_PICKER_ITEM_ESIMTATED_HEIGHT`, 180) and recycles tiles as soon as they leave it, so tiles reach the screen before they're rendered.
