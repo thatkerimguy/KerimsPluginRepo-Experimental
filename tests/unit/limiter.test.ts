@@ -1,4 +1,4 @@
-/* Klipy lookups run two at a time (Limiter in klipy.ts) */
+/* Klipy lookups run two at a time (Limiter in async.ts) */
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

@@ -7,7 +7,7 @@
 import { UserSettingsActionCreators } from "@webpack/common";
 
 import { createFavoritesBackend, type FavoriteMap } from "./favoritesBackend";
-import type { GifItem } from "./types";
+import type { GifItem } from "./items";
 
 export const favoritesBackend = createFavoritesBackend(() => UserSettingsActionCreators.FrecencyUserSettingsActionCreators);
 

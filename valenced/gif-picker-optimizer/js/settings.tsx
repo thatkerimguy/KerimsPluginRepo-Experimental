@@ -16,9 +16,9 @@ import { ScrollView } from "react-native";
 import type { PluginSettingsComponent } from "@valenced/plugins/types";
 import type { ComponentProps, ReactElement } from "react";
 
+import { openConfirmAlert } from "./alerts";
 import { describePatch, PATCHES_NOTE, patchStatuses, summarizePatches } from "./diagnostics";
 import { FavoritesSection } from "./favoritesSettings";
-import { openConfirmAlert } from "./favoritesUi";
 import type { Quality } from "./lowres";
 import type { Settings } from "./settingsStore";
 import { cacheControl, DefaultSettings } from "./settingsStore";

@@ -6,12 +6,12 @@
 import { Stores } from "@valenced/discord/flux";
 
 import { favoritesBackend } from "./favorites";
+import { type GifItem, isFavoriteItem } from "./items";
 import { klipyFavoriteFormats } from "./klipyLookups";
-import { LowResPages } from "./lowResPages";
 import { isKlipyUrl, isTenorPageGif, isVideoUrl, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
+import { LowResPages } from "./lowResPages";
 import { getSettings } from "./settingsStore";
-import type { GifItem } from "./state";
-import { apiPreviews, failed, isFavoriteItem, queue, runtime } from "./state";
+import { apiPreviews, failed, queue, runtime } from "./state";
 
 /** The media_format Discord's GIF picker asks for (`tinywebp` on mobile) */
 export function selectedFormat() {

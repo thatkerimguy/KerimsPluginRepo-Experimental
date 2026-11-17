@@ -13,7 +13,7 @@ export const patches: Omit<Patch, "plugin">[] = [
         find: "renderEmptyFavorite",
         replacement: {
             match: /(\(0,\i\.jsx\)\()(\i),\{(?=item:(\i),index:\i,format:\3\.format,src:\3\.src)/,
-            replace: "$1$self.SequentialResult,{Result:$2,resultType:this?.props?.resultType,",
+            replace: "$1$self.GifTile,{Result:$2,resultType:this?.props?.resultType,",
         },
     },
     {

@@ -15,6 +15,7 @@ export const SHARED = [
     "cache.ts",
     "diagnostics.ts",
     "favoritesBackend.ts",
+    "items.ts",
     "klipyLookups.ts",
     "lowResPages.ts",
     "lowres.ts",

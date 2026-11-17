@@ -2,7 +2,7 @@
 /** @jsx valenced.react.React.createElement */
 /** @jsxFrag valenced.react.React.Fragment */
 /*
- * Small pieces for the settings: toasts and the confirm alert.
+ * Toasts and the confirm alert, used by the settings pages.
  */
 
 import { AlertActionCreators, ToastActionCreators } from "@valenced/discord/actions";

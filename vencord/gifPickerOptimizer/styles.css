@@ -49,7 +49,7 @@
  * from how the previous state looked, so the shapes seem to turn into each other
  * even though React swaps the element:
  *   queued dot (breathes) -> spinner (grows out of the dot) -> line (the ring flattens, then fills)
- *   cached: a breathing circle that morphs into a square and back
+ *   seen: a breathing circle that morphs into a square and back
  * Spin uses `rotate` and the entry uses `scale`, so both animations run at once.
  */
 .vc-gpo-indicator {
@@ -95,7 +95,7 @@
 }
 
 /* Usually loads straight from the cache: wait a moment so quick ones don't flash */
-.vc-gpo-indicator-cached.vc-gpo-indicator-enter {
+.vc-gpo-indicator-seen.vc-gpo-indicator-enter {
     animation: vc-gpo-fade-in 0.2s ease-out 0.15s backwards;
 }
 
@@ -273,11 +273,11 @@
     .vc-gpo-line,
     .vc-gpo-line-fill,
     .vc-gpo-pct,
-    .vc-gpo-indicator-cached {
+    .vc-gpo-indicator-seen {
         animation: none;
     }
 
-    /* Still tell queued, cached and loading apart without motion */
+    /* Still tell queued, seen and loading apart without motion */
     .vc-gpo-dot {
         scale: 0.8;
         opacity: 0.7;

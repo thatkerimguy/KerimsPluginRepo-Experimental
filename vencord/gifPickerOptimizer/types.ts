@@ -4,19 +4,7 @@
 
 import type { ComponentType, MouseEvent, ReactNode } from "react";
 
-import type { GifRef } from "./lowResPages";
-
-export interface GifItem extends GifRef {
-    src: string;
-    /** The GIF version of a video result (picker items) */
-    gifSrc?: string;
-    /** Same, as Discord's GIF API names it */
-    gif_src?: string;
-    width?: number;
-    height?: number;
-    /** Only favourites have this (their position in the favourites list) */
-    order?: number;
-}
+import type { GifItem } from "./items";
 
 export interface TileCoords {
     top?: number;

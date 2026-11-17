@@ -16,6 +16,13 @@ What's new since the last stable release, for the release notes:
 - Precaching was removed (it rarely helped; GIFs seen before already load first from cache).
 - Many fixes from code reviews: tiles stuck waiting, Tenor still favourites on mobile, reset cache with the plugin off, much faster imports, and saving that batches writes and saves when Discord closes.
 
+**Changed on 2026-11-17 (1.7.0: easier to read and maintain; no behaviour change, not tried in Discord or on a device):**
+- `tuning.ts` (new, shared): every timing and size the loading and caching code is tuned with, in one place instead of spread over six files.
+- Split by purpose: `klipy.ts` became `klipyLookups.ts` (favourite lookups) and `lowResPages.ts` (search / trending previews, `ApiPreviewCache`); `favoritesBackend.ts` came out of `transfer.ts`; `async.ts` holds `Limiter` and `wait`; `items.ts` holds `GifItem` and the favourite checks both builds had their own copy of. Mobile: `indicator.tsx` out of `tile.tsx`, `patches.tsx` out of `index.tsx`, `favoritesUi.tsx` renamed `alerts.tsx`.
+- Clearer names: the tile is `GifTile` in both builds (was `SequentialResult` / `OptimizedItem`); ticket `priority` → `seenBefore`, `cacheHot` → `fastLaneOpen`, phase `resolving` → `lookingUp`, indicator state `cached` → `seen` (desktop class `vc-gpo-indicator-seen`), `loaded` / `isCached` / `wasSeen` → `loadedThisSession` / `isLoadedThisSession` / `isSeenBefore`.
+- `tileLoader.ts` split into small named steps (`startLoading`, `lookUpThenQueueAgain`, `retryLater`, `useStallFallback`, `retryDelay`); the queue's heap is its own `TicketHeap` class.
+- Checks: sync check, both type checks, mobile build + pre-init check, 49 unit tests, patch test (3 patches, all match).
+
 **Changed on 2026-11-17 (1.7.0: loading and caching improvements; not tried in Discord or on a device):**
 - Klipy favourite lookups: a tile waiting for its lookup gives its queue slot to the next GIF and queues again once the lookup settled. A slow lookup no longer times out into loading the full size original. Two lookups run at a time (`Limiter` in klipy.ts) instead of one.
 - Cache fast lane (queue.ts): tiles report load times; while seen-before GIFs load in ≤ 150 ms, up to 8 more of them start at once. One that takes ≥ 400 ms or times out closes the lane.

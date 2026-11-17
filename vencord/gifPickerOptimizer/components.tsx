@@ -16,13 +16,13 @@ import type { TileCoords } from "./types";
 /**
  * - queued: a breathing dot
  * - loading: the dot grows into a spinner, which flattens into a progress line once progress is known
- * - cached (seen in an earlier session, normally straight from the cache): a breathing circle that morphs into a square and back
+ * - seen (seen in an earlier session, normally straight from the cache): a breathing circle that morphs into a square and back
  * - failed (the preview failed every retry; tried again when the tile comes back): a still, hollow ring
  */
-export type IndicatorState = "queued" | "loading" | "cached" | "failed";
+export type IndicatorState = "queued" | "loading" | "seen" | "failed";
 
 /** Lengths of the looping animations in styles.css (vc-gpo-breathe, vc-gpo-morph) */
-const LOOP_MS = { queued: 1600, cached: 2400 } as const;
+const LOOP_MS = { queued: 1600, seen: 2400 } as const;
 
 /**
  * A negative delay that puts a looping animation where it would be had it started at page load.
@@ -46,14 +46,14 @@ export const PLACEHOLDER_COLOR = "var(--background-mod-subtle)";
 export function Indicator({ state, progress, enter = true }: {
     state: IndicatorState;
     progress?: number | null;
-    /** Play the entry animation (dot to spinner, cached fade-in). False when the previous element already showed this state. */
+    /** Play the entry animation (dot to spinner, seen fade-in). False when the previous element already showed this state. */
     enter?: boolean;
 }) {
     const p = state === "loading" && progress != null ? Math.min(1, Math.max(0, progress)) : null;
 
     let shape: ReactNode;
     if (state === "queued") shape = <div className={cl("dot")} style={inStep(LOOP_MS.queued)} />;
-    else if (state === "cached") shape = <div className={cl("shape")} style={inStep(LOOP_MS.cached)} />;
+    else if (state === "seen") shape = <div className={cl("shape")} style={inStep(LOOP_MS.seen)} />;
     else if (state === "failed") shape = <div className={cl("failed")} />;
     else if (p == null) shape = <div className={cl("spinner", { "spinner-enter": enter })} />;
     else shape = (
@@ -76,7 +76,7 @@ interface LoadOverlayProps {
     /** Still loading: shimmer like the placeholder */
     loading: boolean;
     showProgress: boolean;
-    /** Seen in an earlier session: the cached shape instead of the spinner */
+    /** Seen in an earlier session: the seen shape instead of the spinner */
     seenBefore: boolean;
     /** False when the placeholder already showed a spinner (Klipy lookup), so it doesn't grow out of a dot again */
     enter: boolean;
@@ -187,7 +187,7 @@ export function LoadOverlay({ src, video, loading, showProgress, seenBefore, ent
                 ? <Indicator state="failed" />
                 : seenBefore
                     // Carries on from the placeholder's shape, so no fade-in
-                    ? <Indicator state="cached" enter={false} />
+                    ? <Indicator state="seen" enter={false} />
                     : <Indicator state="loading" progress={progress} enter={enter} />)}
         </div>
     );
@@ -263,7 +263,7 @@ export function StillTile({ viewRef, source, video, loading, showProgress, seenB
             {showProgress && (failed
                 ? <Indicator state="failed" />
                 : loading && (seenBefore
-                    ? <Indicator state="cached" enter={false} />
+                    ? <Indicator state="seen" enter={false} />
                     : <Indicator state="loading" enter={enter} />))}
             {extras}
         </div>

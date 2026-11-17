@@ -4,33 +4,16 @@
 
 import type { DiscordModules } from "@valenced/discord/types";
 
-import type { GifRef } from "./lowResPages";
+import type { FrecencyActions } from "./favoritesBackend";
 import type { KlipyResolver } from "./klipyLookups";
 import type { LowResPages } from "./lowResPages";
 import type { Settings } from "./settingsStore";
 import { DefaultSettings } from "./settingsStore";
 import type { TenorPageResolver } from "./tenor";
-import type { FrecencyActions } from "./favoritesBackend";
 import { createTracking } from "./tracking";
 
 export const PLUGIN_ID = "thatkerimguy.gif-picker-optimizer";
 export const PLUGIN_NAME = "GIFs+";
-
-export interface GifItem extends GifRef {
-    src: string;
-    /** The GIF version of a video result */
-    gifSrc?: string;
-    format?: number;
-    width?: number;
-    height?: number;
-    /** Only favourites have this (their position in the favourites list) */
-    order?: number;
-}
-
-/** Favourites come from the frecency settings: they have an `order` and no `id` */
-export function isFavoriteItem(item: GifItem) {
-    return typeof item.order === "number" && item.id == null;
-}
 
 /** Discord's HTTP client (the `HTTP` export of its API module) */
 export interface HttpClient {

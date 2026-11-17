@@ -12,15 +12,16 @@ import type { MouseEvent } from "react";
 
 import { Indicator, LoadOverlay, PLACEHOLDER_COLOR, shimmerInStep, StillTile } from "./components";
 import { patchWorks } from "./diagnostics";
+import { type GifItem, isFavoriteItem, isFavoritesTile } from "./items";
 import { isKlipyUrl, isVideoUrl, normalizeUrl, stillUrl } from "./lowres";
-import { isFavoriteItem, isFavoritesTile, klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
+import { klipyLookupFor, pickSrc, pickStill, type StillSource } from "./previews";
 import { quality, settings } from "./settings";
 import { cl, tileEnv } from "./state";
 import { useTileLoader } from "./tileLoader";
-import { GIF_TYPE_VIDEO, type GifItem, type ResultProps } from "./types";
+import { GIF_TYPE_VIDEO, type ResultProps } from "./types";
 import { useViewport } from "./viewport";
 
-function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
+function GifTileInner({ Result, resultType, ...rest }: ResultProps) {
     patchWorks("results");
     const { item, src, coords } = rest;
     const { loadTimeout, showProgress, stillFavorites } = settings.use(["loadTimeout", "showProgress", "quality", "stillFavorites"]);
@@ -46,7 +47,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
     const q = quality();
     const captureStill = useMemo(() => still && stillUrl(original, q, item) !== shown, [still, original, shown, q]);
 
-    // A tile that was resolving already showed a spinner: the loading one carries on instead of growing out of a dot
+    // A tile that was being looked up already showed a spinner: the loading one carries on instead of growing out of a dot
     const spinnerShown = useRef(false);
     if (phase === "lookingUp") spinnerShown.current = true;
     else if (phase === "queued") spinnerShown.current = false;
@@ -66,7 +67,7 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
                 onClick={click}
                 onContextMenu={contextMenu}
             >
-                {showProgress && <Indicator state={seenBefore ? "cached" : phase === "lookingUp" ? "loading" : "queued"} />}
+                {showProgress && <Indicator state={seenBefore ? "seen" : phase === "lookingUp" ? "loading" : "queued"} />}
                 {rest.renderExtras?.(item)}
             </div>
         );
@@ -130,8 +131,8 @@ function SequentialResultInner({ Result, resultType, ...rest }: ResultProps) {
     );
 }
 
-export const SequentialResult = ErrorBoundary.wrap(SequentialResultInner, {
+export const GifTile = ErrorBoundary.wrap(GifTileInner, {
     // If anything goes wrong, render Discord's own tile untouched
     fallback: ({ wrappedProps: { Result, resultType, ...props } }) => <Result color={PLACEHOLDER_COLOR} {...props} />,
-    displayName: "GifPickerOptimizerResult",
+    displayName: "GifsPlusTile",
 });

@@ -8,22 +8,12 @@
 import { GIFPickerViewStore, LocaleStore, RestAPI } from "@webpack/common";
 
 import { patchWorks } from "./diagnostics";
+import { type GifItem, isFavoriteItem } from "./items";
 import { klipyFavoriteFormats } from "./klipyLookups";
-import { LowResPages } from "./lowResPages";
 import { isKlipyUrl, isVideoUrl, normalizeUrl, rewriteUrl, stillUrl } from "./lowres";
+import { LowResPages } from "./lowResPages";
 import { quality, settings } from "./settings";
 import { apiPreviews, failed, logger, queue, runtime } from "./state";
-import type { GifItem } from "./types";
-
-/** Favourites come from the frecency settings: they have an `order` and no `id` */
-export function isFavoriteItem(item: GifItem) {
-    return typeof item.order === "number" && item.id == null;
-}
-
-export function isFavoritesTile(resultType: unknown, item: GifItem) {
-    if (typeof resultType === "string" && /favou?rite/i.test(resultType)) return true;
-    return isFavoriteItem(item);
-}
 
 /** Small previews for search / trending pages (Klipy), requested alongside Discord's */
 export function createLowResPages() {

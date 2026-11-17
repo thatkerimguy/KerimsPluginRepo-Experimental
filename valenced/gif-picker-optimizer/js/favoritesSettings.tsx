@@ -10,10 +10,10 @@ import { Design } from "@valenced/discord/design";
 import { Clipboard } from "@valenced/externals/react-native-clipboard";
 import { Share } from "react-native";
 
+import { openConfirmAlert, toast } from "./alerts";
 import { favoritesBackend } from "./favorites";
-import { openConfirmAlert, toast } from "./favoritesUi";
-import { runtime } from "./state";
 import { SECTIONS } from "./settingsText";
+import { runtime } from "./state";
 import type { ImportMode, ParsedExport } from "./transfer";
 import { exportFavorites, importFavorites, importSummary, otherSitesWarning, parseExport } from "./transfer";
 

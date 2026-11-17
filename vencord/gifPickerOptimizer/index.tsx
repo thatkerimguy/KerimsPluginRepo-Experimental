@@ -22,16 +22,16 @@ import { LocaleStore, RestAPI } from "@webpack/common";
 import { clearPatches, expectPatch } from "./diagnostics";
 import { featured, mountCategories, needsCategories } from "./favoritesOnly";
 import { FavoritesSettings } from "./FavoritesSettings";
+import { GifTile } from "./GifTile";
+import type { GifItem } from "./items";
 import { KlipyResolver } from "./klipyLookups";
 import { patches } from "./patches";
 import { createLowResPages, lowResStarted } from "./previews";
 import type { UrlListStore } from "./saved";
-import { SequentialResult } from "./SequentialResult";
 import { applyQueueSettings, onConnectionChange, settings } from "./settings";
 import { apiPreviews, failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loadedThisSession, logger, OLD_PLUGIN_NAME, OLD_PRECACHE_STORE_KEY, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
 import { frames } from "./stillFrames";
 import managedStyle from "./styles.css?managed";
-import type { GifItem } from "./types";
 import { disconnectWatchers } from "./viewport";
 
 migratePluginSettings(PLUGIN_NAME, OLD_PLUGIN_NAME);
@@ -67,7 +67,7 @@ export default definePlugin({
     },
 
     // Used by the patches as $self
-    SequentialResult,
+    GifTile,
     featured,
     lowResStarted,
     mountCategories,
