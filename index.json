@@ -5,26 +5,13 @@
   "plugins": {
     "thatkerimguy.gif-picker-optimizer-experimental": {
       "name": "GIFs+ Experimental",
-      "description": "Test build, may be broken. Faster GIF picker: loads GIFs one by one with low resolution previews and remembers which ones loaded, also across restarts. Precaches your favourites and exports / imports them between accounts.",
+      "description": "Test build, may be broken. Faster GIF picker: loads GIFs one by one with low resolution previews and remembers which ones loaded, also across restarts. Exports / imports your favourites between accounts.",
       "author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
       "icon": "GifIcon",
       "channels": {
-        "latest": "1.6.0.7"
+        "latest": "1.6.0.8"
       },
       "versions": {
-        "1.6.0.3": {
-          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.3.zip",
-          "sha256": "e7ef91a996fecef8b60a4cb98a46c16881b565c4390cd2fbf0edf08d6990193b",
-          "size": 18855,
-          "dependencies": {
-            "valenced.api": {
-              "version": ">=1 <2"
-            },
-            "discord": {
-              "version": "*"
-            }
-          }
-        },
         "1.6.0.4": {
           "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.4.zip",
           "sha256": "0cfc9fcd4a5efa77a53fd9208480cee1e641113a3061e9bf5a426bd67b5e8264",
@@ -68,6 +55,19 @@
           "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.7.zip",
           "sha256": "9825c9673fce366e5395528920f5035ebcd3a69195e0af7a1a56a797d822f914",
           "size": 20542,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.6.0.8": {
+          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.8.zip",
+          "sha256": "7d3d7644180c638466c8780aec80a4a9700fb85070b8641bfce721094892a197",
+          "size": 18918,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
