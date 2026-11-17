@@ -213,25 +213,29 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
 
     return (
         <View style={s.overlay} pointerEvents="none">
-            <AView style={[s.box, state === "queued" ? breathing : null]}>
+            <View style={s.box}>
                 {/* Track: appears as the dot opens up, and becomes the progress line's track */}
                 <View style={s.layer}>
                     <AView style={[themed.track, ring, { opacity: range(grow, [0, 0.5], [0, TRACK_OPACITY]) }]} />
                 </View>
                 {/* Brand arc: spins; fades out as the ring flattens */}
-                {(
-                    <AView style={[s.layer, { opacity: range(flat, [0, 0.5], [1, 0]) }]}>
-                        <AView style={{ transform: [{ rotate: range(spin, [0, 1], ["0deg", "360deg"]) }] }}>
-                            <AView
-                                style={[themed.arc, p == null ? ring : { width: 22, height: 22, borderRadius: 11, borderWidth: 3 }, {
-                                    opacity: range(grow, [0, 0.4], [0, 1]),
-                                }]}
-                            />
-                        </AView>
+                <AView style={[s.layer, { opacity: range(flat, [0, 0.5], [1, 0]) }]}>
+                    <AView style={{ transform: [{ rotate: range(spin, [0, 1], ["0deg", "360deg"]) }] }}>
+                        <AView
+                            style={[themed.arc, p == null ? ring : { width: 22, height: 22, borderRadius: 11, borderWidth: 3 }, {
+                                opacity: range(grow, [0, 0.4], [0, 1]),
+                            }]}
+                        />
                     </AView>
-                )}
-                {/* The dot: swells with the ring and fades, so it looks like it opens up into it */}
-                <View style={s.layer}>
+                </AView>
+                {/*
+                  * The dot: swells with the ring and fades, so it looks like it opens up into it.
+                  * Only the dot breathes, and its breathing style stays attached in every state:
+                  * removing a native-driven style leaves the view at its last value, and when the
+                  * whole box breathed, each spinner kept the scale (60–100%) and opacity it had
+                  * when its tile started loading.
+                  */}
+                <AView style={[s.layer, breathing]}>
                     <AView
                         style={[themed.dot, {
                             width: free(grow, [0, 1], [10, 22]),
@@ -240,7 +244,7 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
                             opacity: range(grow, [0, 0.5], [1, 0]),
                         }]}
                     />
-                </View>
+                </AView>
                 {p != null && (
                     <AView style={[s.layer, { opacity: range(flat, [0.6, 1], [0, 1]) }]}>
                         <View style={s.lineBox}>
@@ -248,7 +252,7 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
                         </View>
                     </AView>
                 )}
-            </AView>
+            </View>
             {p != null && (
                 <AView style={{ opacity: range(flat, [0.6, 1], [0, 1]) }}>
                     <Text style={themed.pct}>{Math.round(p * 100)}%</Text>
