@@ -87,10 +87,6 @@ export class LoadQueue {
         return release;
     }
 
-    get isBlocked() {
-        return this.blockers.size > 0;
-    }
-
     /** Something about the ordering changed (visibility/position) */
     kick() {
         this.dirty = true;

@@ -6,13 +6,15 @@ import type { DiscordModules } from "@valenced/discord/types";
 
 import type { GifRef } from "./cache";
 import { ApiPreviewCache, LoadedCache } from "./cache";
-import type { KlipyResolver, LowResPrefetcher } from "./klipy";
+import type { KlipyResolver, LowResPages } from "./klipy";
 import type { Precacher } from "./precache";
 import type { Ticket } from "./queue";
 import { LoadQueue } from "./queue";
 import { SavedUrlSet } from "./saved";
+import type { Settings } from "./settingsStore";
 import { DefaultSettings } from "./settingsStore";
 import type { TenorPageResolver } from "./tenor";
+import type { TileEnv } from "./tileLoader";
 
 export const PLUGIN_ID = "thatkerimguy.gif-picker-optimizer";
 export const PLUGIN_NAME = "GIFs+";
@@ -73,7 +75,7 @@ export const runtime: {
     frecency?: FrecencyActions;
     precache?: Precacher;
     /** Low resolution search / trending requests started alongside Discord's */
-    lowRes?: LowResPrefetcher;
+    lowRes?: LowResPages;
 } = {};
 
 /** Whether `url` loaded recently, so its tile shows it at once without a turn in the queue */
@@ -114,4 +116,35 @@ export function drop(ticket: Ticket | null) {
 
 export function isDropped(ticket: Ticket) {
     return dropped.has(ticket);
+}
+
+/** What the shared tile loader (tileLoader.ts) works with */
+export const tileEnv: TileEnv = {
+    queue,
+    isCached,
+    isPrecached,
+    markLoaded,
+    markFailed(url) {
+        failed.add(url);
+        forgetLoaded(url);
+    },
+    drop,
+    isDropped,
+    onError: (message, e) => runtime.logger?.error?.(message, e),
+};
+
+/** Sets the load queue from the settings (on start and when they change, not per tile) */
+export function applyQueueSettings({ sequential, concurrency }: Settings) {
+    queue.concurrency = sequential ? concurrency : 64;
+    queue.prioritizeVisible = true;
+    queue.kick();
+}
+
+/** Saves anything pending in the saved lists right away (the app going to the background) */
+export function flushSaved() {
+    seen.flush();
+    failed.flush();
+    runtime.klipy?.flush();
+    runtime.tenorPages?.flush();
+    runtime.precache?.flush();
 }

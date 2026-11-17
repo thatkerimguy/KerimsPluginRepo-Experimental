@@ -18,11 +18,16 @@ export interface PersistOptions<T> {
     /** What to save now */
     snapshot(): T;
     onError?(e: unknown): void;
-    /** How long after a change to save (default 2 s) */
+    /** How long after a change to save (default 15 s) */
     delayMs?: number;
 }
 
-const SAVE_DELAY_MS = 2000;
+/**
+ * Saves are batched this long: a save rewrites the whole list (thousands of
+ * entries), and scrolling or precaching changes it many times a second. Each
+ * build also saves right away when Discord closes or goes to the background.
+ */
+const SAVE_DELAY_MS = 15_000;
 
 export class Persisted<T> {
     /** Settles once the saved copy was read (or failed to) */
@@ -48,11 +53,6 @@ export class Persisted<T> {
             this.loadDone = true;
             if (this.dirty) this.changed();
         });
-    }
-
-    /** Whether the saved copy was read */
-    get isLoaded() {
-        return this.loadDone;
     }
 
     /** Something changed: save soon (once the saved copy was read) */

@@ -22,6 +22,7 @@ import { getModules } from "@valenced/modules/finders";
 import { withProps } from "@valenced/modules/finders/filters";
 import { instead } from "@valenced/patcher";
 import type { ReactNode } from "react";
+import { AppState } from "react-native";
 
 import { cacheStats, resetCaches } from "./cacheStats";
 import { precacheOptions } from "./favorites";
@@ -30,13 +31,13 @@ import type { AnyComponent } from "./modules";
 import { pickerModules } from "./modules";
 import { CategoriesPage, DeferredPicker } from "./picker";
 import { Precacher } from "./precache";
-import { createLowResPrefetcher, locale, lookupLowRes } from "./previews";
+import { createLowResPages, locale } from "./previews";
 import type { UrlListStore } from "./saved";
 import SettingsComponent from "./settings";
 import type { Settings } from "./settingsStore";
 import { cacheControl, DefaultSettings, getSettings, setStorage } from "./settingsStore";
 import type { FrecencyActions, GifItem, HttpClient } from "./state";
-import { apiPreviews, failed, loaded, PLUGIN_ID, runtime, seen } from "./state";
+import { apiPreviews, applyQueueSettings, failed, flushSaved, loaded, PLUGIN_ID, runtime, seen } from "./state";
 import { TenorPageResolver } from "./tenor";
 import type { ItemProps } from "./tile";
 import { OptimizedItem } from "./tile";
@@ -106,6 +107,7 @@ export default plugin<{ jsonStorage: Settings; }>({
         setStorage(jsonStorage);
         runtime.logger = logger;
         loaded.resize(getSettings().cacheSize);
+        applyQueueSettings(getSettings());
         cacheControl.stats = cacheStats;
         cacheControl.reset = resetCaches;
 
@@ -113,7 +115,11 @@ export default plugin<{ jsonStorage: Settings; }>({
         failed.attach(savedList("failed.json"));
         runtime.tenorPages = new TenorPageResolver(savedMap("tenor-pages.json"));
         runtime.precache = new Precacher(precacheOptions);
-        runtime.lowRes = createLowResPrefetcher();
+        runtime.lowRes = createLowResPages();
+        // Saves are batched (persist.ts): save right away when the app goes to the background
+        const appState = AppState.addEventListener("change", state => {
+            if (state !== "active") flushSaved();
+        });
 
         const klipyStore = savedMap("klipy-previews.json");
         runtime.klipy = new KlipyResolver({
@@ -135,6 +141,7 @@ export default plugin<{ jsonStorage: Settings; }>({
 
         cleanup(
             () => {
+                appState.remove();
                 runtime.precache?.stop();
                 runtime.precache = undefined;
                 runtime.lowRes?.clear();
@@ -197,12 +204,12 @@ export default plugin<{ jsonStorage: Settings; }>({
                     runtime.lowRes?.search(query, typeof limit === "number" ? limit : undefined, immediate === true);
                 });
                 startWith("fetchTrendingGIFs", ([limit]) => {
-                    runtime.lowRes?.start(undefined, typeof limit === "number" ? limit : undefined);
+                    runtime.lowRes?.started(undefined, typeof limit === "number" ? limit : undefined);
                 });
             }),
 
             onFluxEventDispatched<{ query?: string; items?: GifItem[]; }>("GIF_PICKER_QUERY_SUCCESS", payload => {
-                lookupLowRes(payload).catch(() => { });
+                runtime.lowRes?.arrived(payload).catch(() => { });
                 // Returning the payload lets the event through unchanged
                 return payload;
             }),

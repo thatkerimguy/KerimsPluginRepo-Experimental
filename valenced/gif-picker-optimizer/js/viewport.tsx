@@ -17,7 +17,7 @@ import { cloneElement, createContext, isValidElement, useCallback, useContext, u
 
 import { lazy } from "./lazy";
 import { useSettings } from "./settingsStore";
-import { loaded } from "./state";
+import { applyQueueSettings, loaded } from "./state";
 import { replaceInTree } from "./tree";
 
 interface ViewToken {
@@ -75,10 +75,13 @@ const isFlashList = (n: any) =>
 /** Wraps Discord's GIF results list to track which items are on screen */
 export function OptimizedResultsList({ props, render }: { props: ResultsListProps; render: (p: ResultsListProps) => ReactNode; }) {
     const store = useMemo(() => new ViewportStore(), []);
-    const { cacheSize } = useSettings();
+    const settings = useSettings();
+    const { cacheSize, sequential, concurrency } = settings;
     useEffect(() => {
         if (loaded.max !== cacheSize) loaded.resize(cacheSize);
     }, [cacheSize]);
+    // Settings changed since start: once per list, not per tile
+    useEffect(() => applyQueueSettings(settings), [sequential, concurrency]);
     const tree = render(props);
 
     const originalCallback = useRef<((info: any) => void) | null>(null);

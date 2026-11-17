@@ -6,9 +6,8 @@
 import { Stores } from "@valenced/discord/flux";
 
 import { favoritesBackend } from "./favorites";
-import type { LowResRequest } from "./klipy";
-import { LowResPrefetcher, wait } from "./klipy";
-import { isKlipyUrl, isTenorPageGif, isVideoUrl, klipyFavoriteFormats, lowResMediaFormat, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
+import { LowResPages, wait } from "./klipy";
+import { isKlipyUrl, isTenorPageGif, isVideoUrl, klipyFavoriteFormats, normalizeUrl, rewriteUrl, stillUrl, tenorMediaFromSrc } from "./lowres";
 import { getSettings } from "./settingsStore";
 import type { GifItem } from "./state";
 import { apiPreviews, failed, isFavoriteItem, queue, runtime } from "./state";
@@ -22,79 +21,22 @@ export function locale() {
     return (Stores.LocaleStore as unknown as { locale?: string; } | undefined)?.locale;
 }
 
-/** Longest the queue waits for the low resolution results of a page */
-const LOW_RES_CAP_MS = 3000;
-
-/** The media_format for small search / trending previews, or null when none is needed */
-function lowResFormat() {
-    const { quality: q, klipyLookup } = getSettings();
-    if (!klipyLookup || q === "original" || !runtime.http) return null;
-    return lowResMediaFormat(selectedFormat(), q);
-}
-
-/** Asks Discord's GIF API for a search or trending page in a small media_format, and keeps the URLs */
-async function requestLowRes({ query, format, limit }: LowResRequest) {
-    const { http } = runtime;
-    if (!http) throw new Error("HTTP module not found yet");
-    const q = getSettings().quality;
-    const isSearch = typeof query === "string";
-    const lang = locale();
-    const res = await http.get({
-        url: isSearch ? "/gifs/search" : "/gifs/trending-gifs",
-        query: {
-            ...(isSearch ? { q: query } : {}),
-            media_format: format,
-            ...(lang ? { locale: lang } : {}),
-            ...(limit != null ? { limit } : {}),
+/** Small previews for search / trending pages (Klipy), requested alongside Discord's */
+export function createLowResPages() {
+    return new LowResPages({
+        quality: () => getSettings().quality,
+        enabled: () => getSettings().klipyLookup && !!runtime.http,
+        selectedFormat,
+        locale,
+        async get(url, query) {
+            const { http } = runtime;
+            if (!http) throw new Error("HTTP module not found yet");
+            return (await http.get({ url, query, oldFormErrors: true }))?.body;
         },
-        oldFormErrors: true,
+        previews: apiPreviews,
+        block: ms => queue.block(ms),
+        warn: (message, e) => runtime.logger?.warn?.(message, e),
     });
-    apiPreviews.store(q, (Array.isArray(res?.body) ? res.body : []) as GifItem[]);
-}
-
-export function createLowResPrefetcher() {
-    return new LowResPrefetcher({
-        format: lowResFormat,
-        request: requestLowRes,
-        onError: (e, req) => runtime.logger?.warn?.(`Couldn't fetch low resolution Klipy previews (media_format=${req.format})`, e),
-    });
-}
-
-/**
- * Discord's results for a search or trending page arrived. Klipy results (whose
- * URLs can't be rewritten) get small previews from a second request for the same
- * page in a small media_format. That request normally started with Discord's own
- * (the `search` / `fetchTrendingGIFs` patches), so the queue only waits for it if
- * it's still in flight. If it wasn't started (the patch didn't apply), it's sent
- * now and the queue waits.
- */
-export async function lookupLowRes(event: { query?: string; items?: GifItem[]; }) {
-    const { quality: q, klipyLookup } = getSettings();
-    if (!klipyLookup || q === "original" || !runtime.http) return;
-
-    const items = event.items ?? [];
-    if (!items.some(i => i?.src && isKlipyUrl(i.src) && !apiPreviews.has(q, i))) return;
-
-    const format = lowResFormat();
-    if (!format) return;
-
-    const query = typeof event.query === "string" ? event.query : undefined;
-    const early = runtime.lowRes?.pending(query);
-    if (early) {
-        const left = LOW_RES_CAP_MS - early.runningMs;
-        if (early.wait && left > 0) early.wait.finally(queue.block(left));
-        return;
-    }
-
-    // Hold the queue so tiles don't start loading the full resolution file meanwhile
-    const release = queue.block(LOW_RES_CAP_MS);
-    try {
-        await requestLowRes({ query, format, limit: items.length });
-    } catch (e) {
-        runtime.logger?.warn?.(`Couldn't fetch low resolution Klipy previews (media_format=${format})`, e);
-    } finally {
-        release();
-    }
 }
 
 /** The src Discord saved for a favourite (the tab shows a changed URL for some) */
@@ -119,7 +61,7 @@ function klipyFormats(item: GifItem): string[] | null {
     const { quality: q, klipyLookup } = getSettings();
     const { klipy } = runtime;
     if (!klipy || !klipyLookup || q === "original") return null;
-    // Search and trending results get small versions from lookupLowRes, in one request per page
+    // Search and trending results get small versions from LowResPages, in one request per page
     if (!isFavoriteItem(item)) return null;
     if (apiPreviews.has(q, item)) return null;
     if (!isKlipyUrl(item.src) || !klipy.canResolve(item.url)) return null;

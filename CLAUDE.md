@@ -5,7 +5,7 @@ GIFs+ (called GifPickerOptimizer before 1.6.0): a Discord GIF picker plugin with
 - `vencord/gifPickerOptimizer/`: Vencord user plugin for desktop and web. **This is the one being installed and tested now.**
 - `valenced/gif-picker-optimizer/`: plugin for Valenced (github.com/Valenced/valenced), a React Native mobile client mod. Replaced the old Raincord build. Not tested on a device yet.
 
-`lowres.ts`, `queue.ts`, `cache.ts` (also `ApiPreviewCache`), `klipy.ts`, `persist.ts`, `precache.ts`, `saved.ts` and `transfer.ts` are identical in `vencord/gifPickerOptimizer/` and `valenced/gif-picker-optimizer/js/`. Change both together (CI checks it).
+`lowres.ts`, `queue.ts`, `cache.ts` (also `ApiPreviewCache`), `klipy.ts`, `persist.ts`, `precache.ts`, `saved.ts`, `tileLoader.ts` and `transfer.ts` are identical in `vencord/gifPickerOptimizer/` and `valenced/gif-picker-optimizer/js/`. Change both together (CI checks it).
 
 ## Experimental repository (testing)
 
@@ -21,20 +21,21 @@ Vencord (`vencord/gifPickerOptimizer/`):
 - `settings.tsx`: settings definition and `quality()`. `CacheSettings.tsx`: the cache stats/reset component.
 - `state.ts`: shared caches (`loaded`, and the saved `seen` / `failed` lists), the queue, `runtime` (holds the `KlipyResolver`, `Precacher` and `LowResPrefetcher` while running), `isCached` (only `loaded`) / `isPrecached` (precached or `seen`), `markLoaded` / `forgetLoaded`, `drop`/`isDropped`, the DataStore keys.
 - `saved.ts` (shared): `SavedUrlSet`, a URL LRU with timestamps that expire, loaded from and saved to a `UrlListStore` (`attach` / `detach`). Used for `seen` and `failed`.
-- `persist.ts` (shared): `Persisted<T>`, the one load / merge / debounced save / `reset` / `close` helper behind `SavedUrlSet`, `Precacher`, `KlipyResolver` and mobile `TenorPageResolver`. Never saves before the saved copy was read (a save replaces it); `reset()` and `close()` make a load still in flight stale.
+- `persist.ts` (shared): `Persisted<T>`, the one load / merge / debounced save / `reset` / `close` helper behind `SavedUrlSet`, `Precacher`, `KlipyResolver` and mobile `TenorPageResolver`. Never saves before the saved copy was read (a save replaces it); `reset()` and `close()` make a load still in flight stale. Saves are batched 15 s (a save rewrites the whole list); `flushSaved()` (state.ts, both builds) saves at once when Discord closes or is hidden (desktop `beforeunload` / `visibilitychange`) or the app leaves the foreground (mobile `AppState`).
+- `tileLoader.ts` (shared): `useTileLoader(react, env, opts)`, the tile's whole load lifecycle (ticket, cache / precached shortcuts, lookup, still toggle, `enabled`, timeouts, error fallback, mobile's native cache probe and stall fallback). It takes React's hooks as an argument; each build passes its `tileEnv` (state.ts). `precached` is worked out before the first render, so precached tiles never flash the queued dot.
 - `previews.ts`: `pickSrc`, `pickStill`, `lookupLowRes` + `lowResStarted` (the early search request), Klipy favourite lookups, `favoriteUrls` (memoized URL list for precache counts).
 - `viewport.ts`: the "visible" `ViewportWatcher` and the `useViewport` hook (on-screen state for queue priority).
-- `SequentialResult.tsx`: the tile and its `useTileLoader` hook. `components.tsx`: `Indicator`, `LoadOverlay`, `StillTile`. `stillFrames.ts`: frame capture and its LRU.
+- `SequentialResult.tsx`: the tile (uses the shared `useTileLoader`). `components.tsx`: `Indicator`, `LoadOverlay`, `StillTile`. `stillFrames.ts`: frame capture and its LRU.
 - `favoritesOnly.ts`: the favourites-only helpers called from patches. `types.ts`: shared types.
 - `favorites.ts`: frecency favourites backend (read/update), `favoriteItems()`, precache downloads. `precacheUi.tsx`: precache button and stats (`renderPrecacheButton` is called from the Favorites header patch). `FavoritesSettings.tsx`: the Favourites settings section (precache, export to a file, import merge/replace). `hooks.ts`: `usePrecacheUpdates`.
-- `transfer.ts` (shared): export/import format and logic (`buildExport`, `formatExport`, `parseExport`, `applyImport`, `exportFavorites`, async `importFavorites`), `findKey` (matches signed attachment URLs), `nextOrder`, `protoBytes` (exact size through `ProtoClass`), `favoritesBytes`, `estimateBytes` / `FAVORITES_MAX_BYTES`.
-- `klipy.ts` (shared) also holds `LowResPrefetcher`: the search / trending low-res request started alongside Discord's.
+- `transfer.ts` (shared): export/import format and logic (`buildExport`, `formatExport`, `parseExport`, `applyImport` (matches signed attachment URLs without their signature), `exportFavorites`, async `importFavorites`), `nextOrder`, `protoBytes` (exact size through `ProtoClass`), `favoritesBytes`, `estimateBytes` / `FAVORITES_MAX_BYTES`.
+- `klipy.ts` (shared) also holds `LowResPrefetcher` (the search / trending low-res request started alongside Discord's) and `LowResPages`, which wraps it with the request and the `GIF_PICKER_QUERY_SUCCESS` handling (`arrived`); each build gives it adapters (`createLowResPages` in previews.ts). Queue settings are applied by `applyQueueSettings` (desktop settings.tsx: on start, setting change and connection change; mobile state.ts: on start and from `OptimizedResultsList`), not by tiles.
 
 Valenced (`valenced/gif-picker-optimizer/js/`):
 - `index.tsx`: `plugin({...})` and the start wiring (sets `runtime.*` and `pickerModules.*`).
 - `settingsStore.ts` (was `shared.ts`): settings storage and hooks. `settings.tsx`: settings page. `cacheStats.ts`: stats/reset.
 - `state.ts`: caches (`loaded`, saved `seen` / `failed`), queue, `runtime`, `isCached`/`isPrecached`, `markLoaded`/`forgetLoaded`, `drop`/`isDropped`. `nativeCache.ts`: `isNativeCached` (batched `Image.queryCache`). `tenor.ts`: `TenorPageResolver` (fallback only). `previews.ts`: `pickSrc`, `lookupFor`, `lookupLowRes`, Tenor media from the saved src, `favoriteUrls`.
-- `viewport.tsx`: `ViewportStore`, `OptimizedResultsList`, `useVisibleIndex` (visibility for queue order only; no parking). `tile.tsx`: `OptimizedItem` and `useTileLoader`. `picker.tsx`: deferred picker and the categories page switch. `tree.ts`: `replaceInTree`.
+- `viewport.tsx`: `ViewportStore`, `OptimizedResultsList`, `useVisibleIndex` (visibility for queue order only; no parking). `tile.tsx`: `OptimizedItem` (shared `useTileLoader`, `enabled` = Discord's tree has the Image, `treeHas`). `picker.tsx`: deferred picker and the categories page switch. `tree.ts`: `replaceInTree`.
 - `modules.ts`: `pickerModules` (Discord's picker modules). `favorites.ts`: frecency backend, `precache.json`, `Image.prefetch` downloads, `favoriteItems()` (mirrors Discord's `transformFavoriteGifUrl`). `favoritesUi.tsx`: `usePrecacheUpdates`, precache button and stats, toast, confirm alert. `mainPage.tsx`: the favourites-only main page (precache bar + Favorites tile). `favoritesSettings.tsx`: the Favourites settings section (precache, export to clipboard/share, import from clipboard).
 
 ## What the user asked for
@@ -128,6 +129,12 @@ A preview is only used if it's the same media type as the original (video stays 
 
 ## Verified vs unverified
 
+**Changed on 2026-11-17 (second review: shared tile loader and low-res pages; not tried in Discord or on a device):**
+- `tileLoader.ts` replaces both copies of the tile state machine. Fixes: a tile that lost its Image during a lookup spun forever (now restarts); precached tiles flashed the queued dot (desktop) / never faded in (mobile), because `precached` was only set after the first paint; `pickSrc` ran three times per mount (the first pick is reused); still tiles parsed `stillUrl` every render (memoized).
+- `LowResPages` (klipy.ts) replaces both copies of the search / trending low-res code. Removed dead code: `findKey`, `Persisted.isLoaded`, `LoadQueue.isBlocked`.
+- **Rule (mobile): never use a React or React Native name as a shorthand object key** (`{ useState, useEffect }`): the build rewrites the name there too and the bundle fails to parse. tile.tsx passes the `React` namespace to `useTileLoader` instead.
+- Checks: both type checks (desktop against a fresh Vencord checkout; `gifenc` couldn't be downloaded, so two unrelated plugins fail), mobile build + `preinit-check.cjs`, scratch tests: `useTileLoader` with react-test-renderer (order, precached first render, still toggle, disabled mid-lookup, error fallback, native cache), `LowResPages`, persistence with the 15 s delay.
+
 **Changed on 2026-11-17 (code review fixes; not tried in Discord or on a device):**
 - Toggling still favourites while a tile was queued left it waiting forever (the still effect dropped the ticket the queue effect had just made). Fixed in both builds: the still effect does nothing while `queued`.
 - Mobile tiles without a matching `Image` in Discord's tree (`treeHas`) now pass `enabled: false` to `useTileLoader`: no ticket while it's missing, queued again when it appears. Before, the ticket was dropped for good on the first such render.
@@ -164,7 +171,7 @@ A preview is only used if it's the same media type as the original (video stays 
 - Before, everything the plugin knew about GIFs was memory only, so after a restart every tile waited in the queue with a spinner again and broken previews were tried again (the GIF files themselves were still in Chromium's HTTP cache / Fresco's disk cache). Our own byte cache isn't possible: CSP `connect-src` doesn't allow fetching the GIF CDNs.
 - `seen` (`SavedUrlSet`, 5000 URLs, 14 days): every finished load (`markLoaded`). Saved under DataStore `GifPickerOptimizer_seen` (desktop) / `seen.json` (mobile). `isPrecached` includes it: first in the queue, no spinner, still takes a turn (the cache may have evicted the file). Only `loaded` (this session) skips the queue.
 - `failed` is a `SavedUrlSet` too (600 URLs, 7 days; was a `BoundedSet` that never expired, now removed): `GifPickerOptimizer_failed` / `failed.json`. A failed preview is also removed from `seen` (`forgetLoaded`).
-- Saving: 2 s after a change, and a re-add only refreshes the saved time when it's 12 h old, so scrolling doesn't keep writing. Nothing is saved until the saved list was read (a save replaces it); saved entries go before this session's in LRU order. `detach` on stop flushes. Cache reset clears both, also on disk.
+- Saving: batched (15 s since the 2026-11-17 review, was 2 s), and a re-add only refreshes the saved time when it's 12 h old, so scrolling doesn't keep writing. Nothing is saved until the saved list was read (a save replaces it); saved entries go before this session's in LRU order. `detach` on stop flushes. Cache reset clears both, also on disk.
 - Mobile only: tiles ask `Image.queryCache` (batched per 16 ms) for their URL as they queue. If it's in the native cache and the ticket hasn't started, the ticket is dropped and the tile shows at once. Unverified on a device: Discord's tile image may not go through RN Image's cache (then the answer is always "not cached" and nothing changes). Desktop has no equivalent (the HTTP cache can't be queried from a page).
 - Tests (scratch): `tests/test6.ts` covers `SavedUrlSet` (load merge order, expiry, bad entries, save throttle, LRU limit, detach flush, clear during load, attach race, failing loads); `tests/f/test12.ts` uses it for the `version` checks. Smoke `smoke/vrun.mjs new` adds a "native cached" run (tiles 6-9 cached: they show right after the first batch, one `queryCache` call for 10 URLs).
 

@@ -9,10 +9,11 @@ import { Logger } from "@utils/Logger";
 import type { ReactNode } from "react";
 
 import { ApiPreviewCache, LoadedCache } from "./cache";
-import type { KlipyResolver, LowResPrefetcher } from "./klipy";
+import type { KlipyResolver, LowResPages } from "./klipy";
 import type { Precacher } from "./precache";
 import { LoadQueue, type Ticket } from "./queue";
 import { SavedUrlSet } from "./saved";
+import type { TileEnv } from "./tileLoader";
 
 export const PLUGIN_NAME = "GIFs+";
 /** The plugin's name before 1.6.0, to carry its settings over */
@@ -46,8 +47,8 @@ export const runtime: {
     /** Looks up small versions of Klipy favourites */
     klipy?: KlipyResolver;
     precache?: Precacher;
-    /** Low resolution search / trending requests started alongside Discord's */
-    lowRes?: LowResPrefetcher;
+    /** Small previews for search / trending pages, requested alongside Discord's */
+    lowRes?: LowResPages;
 } = {};
 
 /**
@@ -94,4 +95,27 @@ export function drop(ticket: Ticket | null) {
 
 export function isDropped(ticket: Ticket) {
     return dropped.has(ticket);
+}
+
+/** What the shared tile loader (tileLoader.ts) works with */
+export const tileEnv: TileEnv = {
+    queue,
+    isCached,
+    isPrecached,
+    markLoaded,
+    markFailed(url) {
+        failed.add(url);
+        forgetLoaded(url);
+    },
+    drop,
+    isDropped,
+    onError: (message, e) => logger.error(message, e),
+};
+
+/** Saves anything pending in the saved lists right away (Discord closing or hidden) */
+export function flushSaved() {
+    seen.flush();
+    failed.flush();
+    runtime.klipy?.flush();
+    runtime.precache?.flush();
 }

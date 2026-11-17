@@ -9,28 +9,20 @@
 
 import { Tokens } from "@valenced/discord/common/tokens";
 import { Design } from "@valenced/discord/design";
+import * as React from "react";
 import { isValidElement, useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
-import { wait } from "./klipy";
 import { normalizeUrl } from "./lowres";
 import { isNativeCached } from "./nativeCache";
 import { lookupFor, pickSrc } from "./previews";
-import type { Ticket } from "./queue";
 import { useSettings } from "./settingsStore";
 import type { GifItem } from "./state";
-import { drop, failed, forgetLoaded, isCached, isDropped, isFavoriteItem, isPrecached, markLoaded, queue, runtime } from "./state";
+import { isFavoriteItem, tileEnv } from "./state";
+import { useTileLoader } from "./tileLoader";
 import { lazy } from "./lazy";
 import { replaceInTree, treeHas } from "./tree";
 import { useVisibleIndex } from "./viewport";
-
-/**
- * - queued: waiting for a turn in the load queue
- * - resolving: looking up the small Tenor or Klipy URL before loading
- * - loading: the chosen URL is loading
- * - done: loaded, failed for good, or shown from cache
- */
-type Phase = "queued" | "resolving" | "loading" | "done";
 
 export interface ItemProps {
     item: GifItem;
@@ -262,201 +254,9 @@ function Indicator({ state, progress }: { state: IndicatorState; progress: numbe
     );
 }
 
-interface LoaderOptions {
-    item: GifItem;
-    index: number;
-    /** Prefer a still image over the animated GIF */
-    still: boolean;
-    sequential: boolean;
-    concurrency: number;
-    loadTimeout: number;
-    /** Discord's tile has an Image the plugin can swap. Without one, the tile doesn't queue. */
-    enabled: boolean;
-}
-
-/**
- * The load lifecycle of one tile: queue ticket, visibility, timeouts and fallbacks.
- * Tiles that scroll away are unmounted (and recycled) by Discord's FlashList.
- */
-function useTileLoader({ item, index, still, sequential, concurrency, loadTimeout, enabled }: LoaderOptions) {
-    /** The URL being shown or loaded, null until the tile's turn */
-    const [chosen, setChosen] = useState<string | null>(() => {
-        const url = pickSrc(item, still);
-        return isCached(url) ? url : null;
-    });
-    const [phase, setPhase] = useState<Phase>(() => (chosen ? "done" : "queued"));
-    const [progress, setProgress] = useState<number | null>(null);
-    /** Precached: first in the queue, and the cached indicator instead of the spinner (it normally comes straight from the cache) */
-    const [precached, setPrecached] = useState(false);
-
-    const ticketRef = useRef<Ticket | null>(null);
-    const indexRef = useRef(index);
-    indexRef.current = index;
-    const visibleRef = useRef(true);
-
-    useVisibleIndex(index, visible => {
-        visibleRef.current = visible;
-        const ticket = ticketRef.current;
-        if (ticket && ticket.visible !== visible) {
-            ticket.visible = visible;
-            queue.kick();
-        }
-    });
-
-    // Wait for a turn in the load queue
-    useEffect(() => {
-        if (phase !== "queued" || !enabled) return;
-
-        // Loaded recently: show it from cache right away
-        const cached = pickSrc(item, still);
-        if (isCached(cached)) {
-            setChosen(cached);
-            setPhase("done");
-            return;
-        }
-
-        queue.concurrency = sequential ? concurrency : 64;
-        queue.prioritizeVisible = true;
-        const priority = isPrecached(cached);
-        setPrecached(priority);
-
-        let started = false;
-        const begin = () => {
-            const url = pickSrc(item, still);
-            setChosen(url);
-            setProgress(null);
-            if (isCached(url)) {
-                queue.finish(ticket);
-                setPhase("done");
-            } else {
-                setPhase("loading");
-            }
-        };
-        const ticket: Ticket = {
-            visible: visibleRef.current,
-            priority,
-            order: () => indexRef.current ?? 0,
-            start: () => {
-                started = true;
-                try {
-                    const lookup = lookupFor(item);
-                    if (!lookup) return begin();
-                    setPhase("resolving");
-                    // A lookup never holds a tile longer than the load timeout
-                    Promise.race([lookup, wait(loadTimeout * 1000)])
-                        .catch(() => { })
-                        .then(() => !isDropped(ticket) && begin());
-                } catch (e) {
-                    runtime.logger?.error?.("Couldn't start loading a GIF", e);
-                    setChosen(normalizeUrl(item.src));
-                    setProgress(null);
-                    setPhase("loading");
-                }
-            },
-        };
-        ticketRef.current = ticket;
-        queue.enqueue(ticket);
-        // Still on the device from an earlier session: show it now instead of waiting
-        void isNativeCached(cached).then(hit => {
-            if (!hit || started || isDropped(ticket)) return;
-            drop(ticket);
-            setChosen(cached);
-            setPhase("done");
-        });
-        // Once started, the slot is freed by finishing or unmounting instead
-        return () => {
-            if (!started) drop(ticket);
-        };
-    }, [phase, still, enabled]);
-
-    // Discord's tile lost its Image (unknown tree shape): don't hold a queue slot for
-    // it. The queue effect above queues again once the Image is back.
-    useEffect(() => {
-        if (!enabled) drop(ticketRef.current);
-    }, [enabled]);
-
-    // The still previews setting changed: pick the URL again
-    const stillRef = useRef(still);
-    useEffect(() => {
-        if (stillRef.current === still) return;
-        stillRef.current = still;
-        // Still waiting: the queue effect above already re-ran for the new setting and
-        // queued a fresh ticket. Dropping it here would leave the tile waiting forever.
-        if (phase === "queued") return;
-        drop(ticketRef.current);
-        setChosen(null);
-        setProgress(null);
-        setPhase("queued");
-    }, [still]);
-
-    // Release the slot after the timeout so one slow GIF doesn't hold everything up
-    useEffect(() => {
-        if (phase !== "loading" && phase !== "resolving") return;
-        const timer = setTimeout(() => ticketRef.current && queue.finish(ticketRef.current), loadTimeout * 1000);
-        return () => clearTimeout(timer);
-    }, [phase, chosen]);
-
-    // Unmounted while loading: free the slot
-    useEffect(() => () => drop(ticketRef.current), []);
-
-    const original = normalizeUrl(item.src);
-
-    const done = () => {
-        if (chosen) markLoaded(chosen);
-        if (ticketRef.current) queue.finish(ticketRef.current);
-        setPhase("done");
-    };
-
-    const error = () => {
-        if (chosen && chosen !== original) {
-            // Still / preview not available: try the next best one, then the original
-            failed.add(chosen);
-            forgetLoaded(chosen);
-            setProgress(null);
-            const next = pickSrc(item, still);
-            setChosen(next !== chosen ? next : original);
-            if (phase === "done") setPhase("loading");
-            return;
-        }
-        if (ticketRef.current) queue.finish(ticketRef.current);
-        setPhase("done");
-    };
-
-    // A preview that neither loads nor fails (some image views never report either)
-    // falls back to the next option instead of spinning forever. One that's still
-    // downloading (progress events keep coming) is only slow: it keeps loading.
-    const errorRef = useRef(error);
-    errorRef.current = error;
-    const progressAt = useRef(0);
-    useEffect(() => {
-        if (phase !== "loading" || !chosen || chosen === original) return;
-        progressAt.current = 0;
-        const quietLimit = loadTimeout * 1000;
-        let timer: ReturnType<typeof setTimeout>;
-        const check = () => {
-            const quiet = Date.now() - progressAt.current;
-            if (progressAt.current && quiet < quietLimit) {
-                timer = setTimeout(check, quietLimit - quiet);
-                return;
-            }
-            errorRef.current();
-        };
-        timer = setTimeout(check, loadTimeout * 2000);
-        return () => clearTimeout(timer);
-    }, [phase, chosen]);
-
-    /** Progress event from the Image, while loading */
-    const reportProgress = (loadedBytes: number, total: number) => {
-        progressAt.current = Date.now();
-        if (total > 0) setProgress(loadedBytes / total);
-    };
-
-    return { phase, chosen, precached, progress, done, error, reportProgress };
-}
-
 export function OptimizedItem({ props, render }: { props: ItemProps; render: (p: ItemProps) => any; }) {
     const { item, index } = props;
-    const { sequential, concurrency, loadTimeout, showProgress, stillFavorites } = useSettings();
+    const { loadTimeout, showProgress, stillFavorites } = useSettings();
 
     // Discord's own tile. Always rendered (it uses hooks) and with the original item,
     // so tapping sends and long-press favourites the full resolution GIF.
@@ -468,9 +268,25 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
     // Unknown tree shape: leave Discord's tile alone and don't hold up the queue
     const hasImage = treeHas(tree, isImage);
 
-    const { phase, chosen, precached, progress, done, error, reportProgress } = useTileLoader({
-        item, index, still, sequential, concurrency, loadTimeout, enabled: hasImage,
-    });
+    // Tiles that scroll away are unmounted (and recycled) by Discord's FlashList
+    const { phase, chosen, precached, progress, setVisible, done, error, reportProgress } = useTileLoader(
+        // React itself, not `{ useState, ... }`: the build rewrites React names even as object keys
+        React,
+        tileEnv,
+        {
+            original,
+            index,
+            still,
+            enabled: hasImage,
+            loadTimeout,
+            initiallyVisible: true,
+            pick: () => pickSrc(item, still),
+            lookup: () => lookupFor(item),
+            probeCache: isNativeCached,
+            stallFallback: true,
+        },
+    );
+    useVisibleIndex(index, setVisible);
     if (!hasImage) return tree;
 
     const [result] = replaceInTree(tree, isImage, (img: any) => {
@@ -503,8 +319,7 @@ export function OptimizedItem({ props, render }: { props: ItemProps; render: (p:
                 style: [imgProps.style, styles().fill],
                 onLoad: (...a: any[]) => {
                     imgProps.onLoad?.(...a);
-                    if (phase === "loading") done();
-                    else if (chosen) markLoaded(chosen);
+                    done();
                 },
                 onError: (...a: any[]) => {
                     imgProps.onError?.(...a);

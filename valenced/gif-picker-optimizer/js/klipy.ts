@@ -15,8 +15,9 @@
  * search result. Lookups run one at a time, spaced out.
  */
 
+import type { ApiPreviewCache, GifRef } from "./cache";
 import { LruCache } from "./cache";
-import { klipyPageQuery, normalizeUrl, pageKey } from "./lowres";
+import { isKlipyUrl, klipyPageQuery, lowResMediaFormat, normalizeUrl, pageKey, type Quality } from "./lowres";
 import { Persisted } from "./persist";
 
 export interface KlipySearchResult {
@@ -293,14 +294,18 @@ export class LowResPrefetcher {
         }, this.opts.debounceMs ?? 250);
     }
 
+    /** The media_format to ask for now, or null (also when working it out throws) */
+    private currentFormat(): string | null {
+        try {
+            return this.opts.format();
+        } catch {
+            return null;
+        }
+    }
+
     /** Discord's request for `query` (undefined: trending) is starting now */
     start(query: string | undefined, limit?: number) {
-        let format: string | null;
-        try {
-            format = this.opts.format();
-        } catch {
-            format = null;
-        }
+        const format = this.currentFormat();
         if (!format) return;
 
         const key = LowResPrefetcher.key(query, format);
@@ -336,12 +341,7 @@ export class LowResPrefetcher {
      * started, or it failed: then the caller asks on its own (the old way).
      */
     pending(query: string | undefined): { wait?: Promise<void>; runningMs: number; } | null {
-        let format: string | null;
-        try {
-            format = this.opts.format();
-        } catch {
-            format = null;
-        }
+        const format = this.currentFormat();
         if (!format) return null;
         const entry = this.entries.get(LowResPrefetcher.key(query, format));
         if (!entry || (entry.settled && !entry.ok)) return null;
@@ -352,6 +352,108 @@ export class LowResPrefetcher {
         clearTimeout(this.timer);
         this.timer = undefined;
         this.entries.clear();
+    }
+}
+
+/** What each build gives `LowResPages`: its settings, Discord's API and the load queue */
+export interface LowResPagesOptions {
+    quality(): Quality;
+    /** Small search / trending previews are wanted (setting) and Discord's API can be reached */
+    enabled(): boolean;
+    /** The media_format Discord's picker asks for */
+    selectedFormat(): string;
+    locale(): string | undefined;
+    /** GET on Discord's API. Resolves the response body. */
+    get(url: string, query: Record<string, unknown>): Promise<unknown>;
+    previews: ApiPreviewCache;
+    /** Holds the load queue for up to `ms`. Returns the release. */
+    block(ms: number): () => void;
+    warn(message: string, e: unknown): void;
+}
+
+/** Longest the load queue waits for the low resolution results of a page */
+const LOW_RES_CAP_MS = 3000;
+
+/**
+ * Small previews for search and trending results. Klipy URLs can't be rewritten,
+ * so the same page is asked for again in a small media_format, normally at the
+ * same time as Discord's own request (`search` / `started`, from patches).
+ */
+export class LowResPages {
+    private prefetcher: LowResPrefetcher;
+
+    constructor(private o: LowResPagesOptions) {
+        this.prefetcher = new LowResPrefetcher({
+            format: () => this.format(),
+            request: req => this.request(req),
+            onError: (e, req) => o.warn(`Couldn't fetch low resolution Klipy previews (media_format=${req.format})`, e),
+        });
+    }
+
+    /** media_format for small previews, or null when no extra request is needed */
+    format(): string | null {
+        const q = this.o.quality();
+        if (q === "original" || !this.o.enabled()) return null;
+        return lowResMediaFormat(this.o.selectedFormat(), q);
+    }
+
+    /** Asks for a search or trending page in a small media_format and keeps the URLs */
+    private async request({ query, format, limit }: LowResRequest) {
+        const q = this.o.quality();
+        const isSearch = typeof query === "string";
+        const lang = this.o.locale();
+        const body = await this.o.get(isSearch ? "/gifs/search" : "/gifs/trending-gifs", {
+            ...(isSearch ? { q: query } : {}),
+            media_format: format,
+            ...(lang ? { locale: lang } : {}),
+            ...(limit != null ? { limit } : {}),
+        });
+        this.o.previews.store(q, Array.isArray(body) ? body : []);
+    }
+
+    /** Discord's search action was called (Discord debounces it 250 ms unless `immediate`) */
+    search(query: string, limit?: number, immediate = false) {
+        this.prefetcher.search(query, limit, immediate);
+    }
+
+    /** Discord's search (query) or trending (undefined) request starts now */
+    started(query: string | undefined, limit?: number) {
+        this.prefetcher.start(query, limit);
+    }
+
+    /**
+     * Discord's results for a page arrived. The small request normally started
+     * with Discord's, so the queue only waits for what's still in flight. If it
+     * wasn't started (a patch didn't apply), it's sent now and the queue waits.
+     */
+    async arrived(event: { query?: string; items?: (GifRef & { src?: string; })[]; }) {
+        const format = this.format();
+        if (!format) return;
+        const q = this.o.quality();
+        const items = event.items ?? [];
+        if (!items.some(i => i?.src && isKlipyUrl(i.src) && !this.o.previews.has(q, i))) return;
+
+        const query = typeof event.query === "string" ? event.query : undefined;
+        const early = this.prefetcher.pending(query);
+        if (early) {
+            const left = LOW_RES_CAP_MS - early.runningMs;
+            if (early.wait && left > 0) early.wait.finally(this.o.block(left));
+            return;
+        }
+
+        // Hold the queue so tiles don't start loading the full resolution file meanwhile
+        const release = this.o.block(LOW_RES_CAP_MS);
+        try {
+            await this.request({ query, format, limit: items.length });
+        } catch (e) {
+            this.o.warn(`Couldn't fetch low resolution Klipy previews (media_format=${format})`, e);
+        } finally {
+            release();
+        }
+    }
+
+    clear() {
+        this.prefetcher.clear();
     }
 }
 

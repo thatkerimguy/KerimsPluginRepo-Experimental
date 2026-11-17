@@ -25,11 +25,11 @@ import { FavoritesSettings } from "./FavoritesSettings";
 import { KlipyResolver } from "./klipy";
 import { Precacher } from "./precache";
 import { renderPrecacheButton } from "./precacheUi";
-import { createLowResPrefetcher, lookupLowRes, lowResStarted } from "./previews";
+import { createLowResPages, lowResStarted } from "./previews";
 import type { UrlListStore } from "./saved";
 import { SequentialResult } from "./SequentialResult";
-import { settings } from "./settings";
-import { failed, FAILED_STORE_KEY, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
+import { applyQueueSettings, onConnectionChange, settings } from "./settings";
+import { failed, FAILED_STORE_KEY, flushSaved, KLIPY_STORE_KEY, loaded, logger, OLD_PLUGIN_NAME, PLUGIN_NAME, runtime, seen, SEEN_STORE_KEY, settingsPanels } from "./state";
 import { frames } from "./stillFrames";
 import managedStyle from "./styles.css?managed";
 import type { GifItem } from "./types";
@@ -37,6 +37,12 @@ import { disconnectWatchers } from "./viewport";
 
 migratePluginSettings(PLUGIN_NAME, OLD_PLUGIN_NAME);
 settingsPanels.favorites = () => <FavoritesSettings />;
+
+/** Saves are batched (persist.ts), so save right away when Discord closes or is hidden */
+const flushWhenHidden = () => {
+    if (document.visibilityState === "hidden") flushSaved();
+};
+let stopWatchingConnection: (() => void) | undefined;
 
 /** A saved URL list ([url, when] pairs) in Vencord's DataStore */
 function savedList(key: string): UrlListStore {
@@ -108,7 +114,7 @@ export default definePlugin({
 
     flux: {
         GIF_PICKER_QUERY_SUCCESS(event: { query?: string; items?: GifItem[]; }) {
-            lookupLowRes(event);
+            runtime.lowRes?.arrived(event).catch(e => logger.warn("Low resolution previews failed", e));
         },
     },
 
@@ -138,10 +144,18 @@ export default definePlugin({
             onError: e => logger.warn("Klipy favourite lookup failed", e),
         });
         runtime.precache = new Precacher(precacheOptions);
-        runtime.lowRes = createLowResPrefetcher();
+        runtime.lowRes = createLowResPages();
+        applyQueueSettings();
+        stopWatchingConnection = onConnectionChange(applyQueueSettings);
+        window.addEventListener("beforeunload", flushSaved);
+        document.addEventListener("visibilitychange", flushWhenHidden);
     },
 
     stop() {
+        stopWatchingConnection?.();
+        stopWatchingConnection = undefined;
+        window.removeEventListener("beforeunload", flushSaved);
+        document.removeEventListener("visibilitychange", flushWhenHidden);
         seen.detach();
         failed.detach();
         runtime.klipy?.stop();

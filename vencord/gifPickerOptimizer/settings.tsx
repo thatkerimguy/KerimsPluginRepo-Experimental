@@ -7,7 +7,7 @@ import { makeRange, OptionType } from "@utils/types";
 
 import { CacheSettings } from "./CacheSettings";
 import type { Quality } from "./lowres";
-import { loaded, settingsPanels } from "./state";
+import { loaded, queue, settingsPanels } from "./state";
 
 /** "800", "1.2K", "3K": four digit marker labels are too wide and wrap under the slider */
 const shortNumber = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(1)}K` : String(v));
@@ -30,6 +30,7 @@ export const settings = definePluginSettings({
         type: OptionType.BOOLEAN,
         description: "Load GIFs one after another (left to right, top to bottom) instead of all at once",
         default: true,
+        onChange: () => applyQueueSettings(),
     },
     concurrency: {
         // A dropdown, not a slider: an "Auto" marker label is too wide and wraps
@@ -39,11 +40,13 @@ export const settings = definePluginSettings({
             { label: "Auto (2 on slow connections, up to 6 on fast ones)", value: 0, default: true },
             ...makeRange(1, 6, 1).map(n => ({ label: n === 1 ? "1 (strictly one at a time)" : String(n), value: n })),
         ],
+        onChange: () => applyQueueSettings(),
     },
     prioritizeVisible: {
         type: OptionType.BOOLEAN,
         description: "Load GIFs that are on screen before ones you scrolled past",
         default: true,
+        onChange: () => applyQueueSettings(),
     },
     loadTimeout: {
         type: OptionType.SLIDER,
@@ -102,16 +105,25 @@ export function quality(): Quality {
 }
 
 /** Chromium's Network Information API (Electron has it too) */
-interface NetworkInformation {
+interface NetworkInformation extends Partial<EventTarget> {
     effectiveType?: string;
     /** Mbit/s, rounded and capped at 10 by Chromium */
     downlink?: number;
     saveData?: boolean;
 }
 
+const connection = () => (navigator as Navigator & { connection?: NetworkInformation; }).connection;
+
+/** Calls `cb` when the connection's speed estimate changes. Returns the unsubscribe. */
+export function onConnectionChange(cb: () => void) {
+    const c = connection();
+    c?.addEventListener?.("change", cb);
+    return () => c?.removeEventListener?.("change", cb);
+}
+
 /** How many GIFs load at once with "Auto": from the connection's speed estimate */
 export function autoConcurrency(): number {
-    const c = (navigator as Navigator & { connection?: NetworkInformation; }).connection;
+    const c = connection();
     if (!c) return 3;
     if (c.saveData) return 2;
     const type = c.effectiveType;
@@ -120,6 +132,17 @@ export function autoConcurrency(): number {
     if (type === "4g" && down >= 5) return 6;
     if (type === "4g" && down >= 2) return 4;
     return 3;
+}
+
+/**
+ * Sets the load queue from the settings. Called on start, when a queue setting
+ * changes and when the connection changes (Auto concurrency), not by every tile.
+ */
+export function applyQueueSettings() {
+    const { sequential, concurrency, prioritizeVisible } = settings.store;
+    queue.concurrency = sequential ? loadConcurrency(concurrency) : 64;
+    queue.prioritizeVisible = prioritizeVisible;
+    queue.kick();
 }
 
 /** How many GIFs may load at the same time: the setting, or `autoConcurrency()` when it's Auto (0) */

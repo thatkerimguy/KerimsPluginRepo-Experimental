@@ -81,14 +81,6 @@ function withoutSignature(url: string) {
     return kept.length ? `${url.slice(0, q)}?${kept.join("&")}` : url.slice(0, q);
 }
 
-/** The key `url` is saved under in favourites (Discord drops attachment signatures) */
-export function findKey(gifs: FavoriteMap, url: string): string | undefined {
-    if (url in gifs) return url;
-    const plain = withoutSignature(url);
-    if (plain in gifs) return plain;
-    return Object.keys(gifs).find(k => withoutSignature(k) === plain);
-}
-
 export function nextOrder(gifs: FavoriteMap) {
     let max = 0;
     for (const entry of Object.values(gifs)) {
@@ -177,7 +169,7 @@ export function applyImport(gifs: FavoriteMap, file: ExportFile, mode: ImportMod
     }
     let order = nextOrder(gifs);
     let added = 0;
-    // Keys without their signature, so each GIF is checked in O(1) (what `findKey` matches)
+    // Keys without their signature (Discord drops attachment signatures), so each GIF is checked in O(1)
     const known = new Set(Object.keys(gifs).map(withoutSignature));
     // Oldest first, so the newest gets the highest order and is shown first
     for (const g of [...file.gifs].reverse()) {
