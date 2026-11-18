@@ -49,9 +49,9 @@ object Runtime {
     @Volatile var hooked = false
     @Volatile var surfacesWork = false
     @Volatile var chatWidthDp = 0
+        private set
     /** How much wider the MessageAccessoriesView estimate is than the width Discord shows embeds at (learned from a shrunk placeholder). */
     @Volatile var estimateExcessDp = 0
-        private set
     @Volatile var debug = false
         private set
 
