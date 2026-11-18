@@ -46,6 +46,9 @@ class MediaViewHook(private val scope: PluginScope) {
                     val marker = url?.let(Marker::decode)
                     if (url != null) Runtime.diag("MediaView bound to marker ${marker?.key ?: "(couldn't decode $url)"}", key = true)
                     if (marker == null && !Hosts.isHosting(preview)) return
+                    // Discord calls this again with no media right after a bind (seen on the device in
+                    // 0.1.0.24: it removed every host 7 ms after adding it). Only real other media detaches.
+                    if (marker == null && param.args[1] == null) return
                     if (marker == null) Runtime.diag("MediaView with a host bound to other media: ${param.args[1]}", key = true)
                     Hosts.onBound(preview, marker)
                 } catch (e: Throwable) {
