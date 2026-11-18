@@ -231,5 +231,5 @@ object Runtime {
     fun sendStatus() = event("status", "status" to status())
 
     private const val MAX_PENDING = 200
-    private const val MAX_DIAG = 80
+    private const val MAX_DIAG = 150
 }

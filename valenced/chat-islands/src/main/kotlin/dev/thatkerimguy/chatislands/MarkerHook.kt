@@ -32,6 +32,10 @@ class MarkerHook(private val scope: PluginScope) {
     private val unhooks = mutableListOf<XC_MethodHook.Unhook>()
     @Volatile private var sawBuild = false
     @Volatile private var sawSetController = false
+    /** Diagnostics: the URL of the last build() (main thread), for setController logging. */
+    @Volatile private var lastBuildUrl: String? = null
+    private var noRequestLogs = 0
+    private var urlLogs = 0
 
     /** Controller → marker URL, for controllers built from a marker request. */
     private val markerControllers: MutableMap<Any, String> = Collections.synchronizedMap(WeakHashMap())
@@ -94,6 +98,9 @@ class MarkerHook(private val scope: PluginScope) {
                     }
                     val url = if (controller == null) null else markerControllers[controller]
                     val marker = url?.let(Marker::decode)
+                    if (view.parent?.javaClass?.name?.contains("MediaView") == true) {
+                        Runtime.diag("setController in ${view.parent?.javaClass?.name}: controller ${controller?.javaClass?.name}, marker ${url ?: "none"}, last build url ${lastBuildUrl}")
+                    }
                     if (url != null) Runtime.diag("setController with a marker on ${view.javaClass.name} (parent ${view.parent?.javaClass?.name}): ${marker?.key ?: "couldn't decode $url"}")
                     // Most images aren't islands: only views that are or were hosts need work
                     if (marker == null && !Hosts.isHosting(view)) return
@@ -128,13 +135,25 @@ class MarkerHook(private val scope: PluginScope) {
     private fun markerUrlOf(builder: Any): String? {
         val getter = getter(requestGetter, builder.javaClass, "getImageRequest")
         val requests = if (getter != null) listOf(getter.invoke(builder)) else requestFieldsOf(builder.javaClass).map { it.get(builder) }
+        lastBuildUrl = null
+        if (requests.all { it == null } && noRequestLogs++ < 5) {
+            // Diagnostics: a build with no request in the fields we read (array or supplier instead?)
+            val other = instanceFields(builder.javaClass).mapNotNull { f ->
+                runCatching { f.isAccessible = true; f.get(builder) }.getOrNull()?.let { v ->
+                    "${f.name}:${v.javaClass.name}${if (v is Array<*>) "[${v.size}]" else ""}"
+                }
+            }
+            Runtime.diag("build() without a request in ${requestFieldsOf(builder.javaClass).map { it.name }}; set fields: $other")
+        }
         for (request in requests) {
             if (request == null) continue
             val uri = getter(uriGetter, request.javaClass, "getSourceUri")?.invoke(request)
                 ?: uriFieldOf(request.javaClass)?.get(request)
                 ?: continue
             val url = uri.toString()
+            lastBuildUrl = url
             if (Marker.isMarker(url)) return url
+            if (!url.startsWith("https://cdn.discordapp.com/") && urlLogs++ < 40) Runtime.diag("build() url: $url")
             if (url.contains(".invalid/")) Runtime.diag("image request isn't a marker: $url")
         }
         return null
