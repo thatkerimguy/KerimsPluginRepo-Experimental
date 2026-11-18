@@ -42,7 +42,6 @@ object Hosts {
             return
         }
         val parent = placeholder.parent as? ViewGroup
-        Runtime.diag("onBound ${marker.key}: parent ${parent?.javaClass?.name}, pool ${Runtime.pool != null}, surfaces ${Runtime.surfacesWork}", key = true)
         if (parent == null) {
             // Bound before being added to its row: try again once it's attached
             placeholder.post { Runtime.guarded("bind") { if (placeholder.parent != null) onBound(placeholder, marker) } }
@@ -58,7 +57,7 @@ object Hosts {
         byPlaceholder[placeholder] = created
         created.attachTo(parent)
         created.show(marker)
-        Runtime.diag("host for ${marker.key} added at index ${parent.indexOfChild(created)} of ${parent.childCount}; placeholder ${placeholder.width}x${placeholder.height}", key = true)
+        Runtime.diag("host added for ${marker.key} (${marker.widthDp}x${marker.heightDp} dp)", key = true)
     }
 
     fun detachAll() {
@@ -80,7 +79,10 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
 
     fun attachTo(parent: FrameLayout) {
         val index = parent.indexOfChild(placeholder) + 1
-        val lp = LayoutParams(placeholder.width.coerceAtLeast(1), placeholder.height.coerceAtLeast(1), Gravity.TOP or Gravity.START)
+        // The placeholder (MediaView's preview image) fills its parent, so the host does too. Copying
+        // the placeholder's bounds from layout callbacks left a host at 1×1 on the device (0.1.0.25)
+        // when the placeholder had its final size before the callback was added.
+        val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.TOP or Gravity.START)
         // During a layout pass this asks for another one; the chat binds rows in layout, so that's one extra pass per new host
         parent.addView(this, index, lp)
         placeholder.addOnLayoutChangeListener(follow)
@@ -88,42 +90,43 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
         applyDebug()
     }
 
-    /** Covers the placeholder exactly, whatever size Discord gave it. */
+    /** The host fills its parent like the placeholder; placeholder layout changes only update the chat width. */
+    @Suppress("UNUSED_PARAMETER")
     private fun matchPlaceholder(l: Int, t: Int, r: Int, b: Int) {
-        val lp = layoutParams as? LayoutParams ?: return
-        val w = (r - l).coerceAtLeast(1)
-        val h = (b - t).coerceAtLeast(1)
-        if (lp.width == w && lp.height == h && lp.leftMargin == l && lp.topMargin == t) return
-        lp.width = w
-        lp.height = h
-        lp.leftMargin = l
-        lp.topMargin = t
-        layoutParams = lp
-        reportChatWidth()
+        if (r - l > 1) reportChatWidth()
     }
 
     fun show(marker: Marker) {
         val previous = this.marker
         this.marker = marker
-        if (previous?.key == marker.key && surface != null) return
-        if (previous != null) Runtime.event("detach", "key" to previous.key)
-        val pool = Runtime.pool ?: return
-        surface?.let { pool.release(it) }
-        surface = pool.acquire(marker.key, marker.widthDp).also { Runtime.diag("show ${marker.key} at ${marker.widthDp}dp: surface ${if (it == null) "none" else "ok"}", key = true) }?.also { pooled ->
-            (pooled.view.parent as? ViewGroup)?.removeView(pooled.view)
-            addView(pooled.view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        }
         // The placeholder's (broken) image stays underneath, hidden
         placeholder.alpha = 0f
+        if (previous?.key == marker.key && surface != null) return
+        if (previous != null && previous.key != marker.key) Runtime.event("detach", "key" to previous.key)
+        releaseSurface()
+        takeSurface(marker)
         if (isAttachedToWindow) Runtime.event("attach", "key" to marker.key)
     }
 
-    fun remove() {
-        Runtime.diag("host ${marker?.key} removed by us: ${Throwable().stackTrace.take(8).joinToString(" < ")}", key = true)
-        placeholder.removeOnLayoutChangeListener(follow)
-        placeholder.alpha = 1f
+    /** A pooled surface showing [marker]'s island, in this host. */
+    private fun takeSurface(marker: Marker) {
+        val pool = Runtime.pool ?: return
+        surface = pool.acquire(marker.key, marker.widthDp)?.also { pooled ->
+            (pooled.view.parent as? ViewGroup)?.removeView(pooled.view)
+            addView(pooled.view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        }
+        if (surface == null) Runtime.diag("no free surface for ${marker.key}", key = true)
+    }
+
+    private fun releaseSurface() {
         surface?.let { Runtime.pool?.release(it) }
         surface = null
+    }
+
+    fun remove() {
+        placeholder.removeOnLayoutChangeListener(follow)
+        placeholder.alpha = 1f
+        releaseSurface()
         marker?.let { Runtime.event("detach", "key" to it.key) }
         marker = null
         (parent as? ViewGroup)?.removeView(this)
@@ -131,34 +134,47 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        Runtime.diag("host ${marker?.key} attached to window: parent ${parent?.javaClass?.simpleName} children ${(parent as? ViewGroup)?.childCount}, ${width}x$height", key = true)
-        marker?.let { Runtime.event("attach", "key" to it.key) }
+        val marker = marker ?: return
+        // Back on screen (or a recycled row that kept its island): take a surface again
+        if (surface == null) takeSurface(marker)
+        Runtime.event("attach", "key" to marker.key)
     }
 
     override fun onDetachedFromWindow() {
-        Runtime.diag("host ${marker?.key} detached from window (parent now ${parent?.javaClass?.simpleName}): ${Throwable().stackTrace.take(10).joinToString(" < ")}", key = true)
         marker?.let { Runtime.event("detach", "key" to it.key) }
+        // Off screen: give the surface back to the pool. A host whose row is recycled for a message
+        // without islands would otherwise keep its surface forever, and after MAX_SURFACES of
+        // those new islands would get none (blank cards).
+        releaseSurface()
         super.onDetachedFromWindow()
     }
 
-    /** The width islands should be measured at: from the placeholder's left edge to the chat list's content edge. */
+    /**
+     * The width islands should be measured at: from the placeholder's left edge to the message's
+     * content edge. Discord 352.6: embeds sit in MessageAccessoriesView (name kept), whose right
+     * padding is that edge (0.1.0.25 view tree: embed 176..1047 px in a 1080 px wide accessories view).
+     * The chat list itself is R8-renamed (f9.g0), so it's recognised by its superclass, as a fallback.
+     */
     private fun reportChatWidth() {
         var view: View = this
         var x = left
-        var list: ViewGroup? = null
+        var container: ViewGroup? = null
         while (true) {
             val p = view.parent as? ViewGroup ?: break
-            if (p.javaClass.name.contains("RecyclerView")) {
-                list = p
+            if (p.javaClass.name.endsWith(".MessageAccessoriesView") || isRecyclerView(p)) {
+                container = p
                 break
             }
             x += p.left
             view = p
         }
-        if (list == null) return
-        val available = list.width - list.paddingRight - x - (CONTENT_END_PADDING_DP * density).toInt()
-        Runtime.reportChatWidth((available / density).toInt())
+        if (container == null || container.width <= 0) return
+        val available = container.width - container.paddingRight - x
+        if (available > 0) Runtime.reportChatWidth((available / density).toInt())
     }
+
+    private fun isRecyclerView(v: View) =
+        generateSequence<Class<*>>(v.javaClass) { it.superclass }.any { it.name == "androidx.recyclerview.widget.RecyclerView" }
 
     fun applyDebug() {
         foreground = if (Runtime.debug) GradientDrawable().apply {
@@ -166,8 +182,4 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
         } else null
     }
 
-    private companion object {
-        /** Space Discord leaves right of message content. */
-        const val CONTENT_END_PADDING_DP = 16
-    }
 }

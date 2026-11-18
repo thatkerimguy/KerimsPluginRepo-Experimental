@@ -22,7 +22,17 @@ export interface PipelineDeps {
     onError?(key: string, error: unknown): void;
     /** Islands prepared at once. */
     concurrency?: number;
+    /** Clock (ms), for retries. */
+    now?(): number;
 }
+
+/**
+ * A failed island is tried again this many times, this long after its last failure, when its row is
+ * generated again. Measuring can fail for passing reasons (on the device, the first islands at start
+ * timed out while surfaces were being set up, and a failure used to be final).
+ */
+export const MAX_ATTEMPTS = 3;
+export const RETRY_AFTER_MS = 3000;
 
 /** Islands shorter than this are treated as failed measurements. */
 const MIN_HEIGHT = 8;
@@ -38,6 +48,10 @@ export class Pipeline {
 
     constructor(deps: PipelineDeps) {
         this.deps = deps;
+    }
+
+    private now() {
+        return this.deps.now?.() ?? Date.now();
     }
 
     /**
@@ -56,6 +70,9 @@ export class Pipeline {
                 if (island.height && island.width) ready.push({ key: island.key, replacesEmbed: island.slot.replacesEmbed, width: island.width, height: island.height });
                 this.enqueue(island.key, true);
             } else if (island.phase === "new") {
+                this.enqueue(island.key);
+            } else if (island.phase === "failed" && (island.attempts ?? 0) < MAX_ATTEMPTS
+                && this.now() - (island.failedAt ?? 0) >= RETRY_AFTER_MS) {
                 this.enqueue(island.key);
             }
         }
@@ -107,7 +124,7 @@ export class Pipeline {
             this.scheduleRefresh(island.message.id);
         } catch (e) {
             if (remeasure) return; // keep the old size
-            store.update(key, { phase: "failed", error: e });
+            store.update(key, { phase: "failed", error: e, attempts: (island.attempts ?? 0) + 1, failedAt: this.now() });
             this.deps.onError?.(key, e);
         }
     }

@@ -53,8 +53,6 @@ object Runtime {
     @Volatile var debug = false
         private set
 
-    var hook: MarkerHook? = null
-        private set
     var pool: SurfacePool? = null
         private set
 
@@ -69,10 +67,9 @@ object Runtime {
             coroutines = CoroutineScope(SupervisorJob() + Dispatchers.Main)
             active = true
             registerMethods()
-            hook = MarkerHook(scope).also { hooked = it.install() }
             val mediaHook = MediaViewHook(scope)
-            hooked = mediaHook.install() || hooked
-            if (!hooked) problem("The chat's image views weren't found on this Discord version (${mediaHook.failure ?: hook?.failure ?: "unknown"})")
+            hooked = mediaHook.install()
+            if (!hooked) problem("The chat's image views weren't found on this Discord version (${mediaHook.failure ?: "unknown"})")
             scope.withAppActivity { a ->
                 guarded("activity") {
                     activity = a
@@ -174,7 +171,8 @@ object Runtime {
             val key: String by args.string()
             val width: Double by args.double()
             val pool = pool ?: return@registerNativeMethod false
-            if (!active) return@registerNativeMethod false
+            // Without working surfaces nothing would report a height: say no now instead of timing out
+            if (!active || !surfacesWork) return@registerNativeMethod false
             post("measure") { pool.measure(key, width.toInt()) }
             true
         }
@@ -183,6 +181,15 @@ object Runtime {
             val args = raw.asDelegate()
             val key: String by args.string()
             post("measureDone") { pool?.measureDone(key) }
+            null
+        }
+
+        // JS warnings and errors, into the diagnostics file (Valenced's JS logger only shows them in the app)
+        scope.registerNativeMethod("$NS.log") { raw ->
+            val args = raw.asDelegate()
+            val level: String by args.string()
+            val text: String by args.string()
+            DiagLog.line("js $level: $text")
             null
         }
 

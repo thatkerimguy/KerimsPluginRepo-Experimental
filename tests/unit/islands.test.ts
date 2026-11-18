@@ -10,7 +10,7 @@ import { mock, test } from "node:test";
 import type { IslandMessage, IslandProvider } from "../../valenced/chat-islands/js/api.ts";
 import { displayMessage } from "../../valenced/chat-islands/js/display.ts";
 import { decodeMarker, encodeMarker, MARKER_PREFIX, placeholderEmbed } from "../../valenced/chat-islands/js/marker.ts";
-import { MAX_HEIGHT, Pipeline } from "../../valenced/chat-islands/js/pipeline.ts";
+import { MAX_ATTEMPTS, MAX_HEIGHT, Pipeline, RETRY_AFTER_MS } from "../../valenced/chat-islands/js/pipeline.ts";
 import { Registry } from "../../valenced/chat-islands/js/registry.ts";
 import { IslandStore } from "../../valenced/chat-islands/js/store.ts";
 
@@ -205,4 +205,54 @@ test("pipeline: prepare → measure → ready → one refresh; failures; resize;
     } finally {
         mock.timers.reset();
     }
+});
+
+test("pipeline: failed islands are tried again later, a few times", async () => {
+    const store = new IslandStore();
+    let clock = 1000;
+    let failing = true;
+    let calls = 0;
+    const pipeline = new Pipeline({
+        store,
+        measure: async () => { calls++; if (failing) throw new Error("Measuring timed out"); return 120; },
+        chatWidth: () => 300,
+        refresh: () => { },
+        now: () => clock,
+    });
+    const r = new Registry();
+    r.register("p", linkProvider());
+    const m = new FakeMessage("m1", "https://a.test/1");
+    const slots = r.slotsFor(m);
+    const key = "links:m1:https://a.test/1";
+
+    pipeline.collect(slots, m);
+    await tick();
+    assert.equal(store.get(key)!.phase, "failed");
+    assert.equal(store.get(key)!.attempts, 1);
+
+    // Too soon: not tried again
+    clock += RETRY_AFTER_MS - 1;
+    pipeline.collect(slots, m);
+    await tick();
+    assert.equal(calls, 1);
+
+    // Later: tried again, until MAX_ATTEMPTS
+    for (let i = 2; i <= MAX_ATTEMPTS; i++) {
+        clock += RETRY_AFTER_MS;
+        pipeline.collect(slots, m);
+        await tick();
+        assert.equal(calls, i);
+    }
+    clock += RETRY_AFTER_MS;
+    pipeline.collect(slots, m);
+    await tick();
+    assert.equal(calls, MAX_ATTEMPTS, "gives up after MAX_ATTEMPTS");
+
+    // An edit starts it over, and a working measurement makes it ready
+    failing = false;
+    const edited = new FakeMessage("m1", "https://a.test/1 (edited)");
+    pipeline.collect(r.slotsFor(edited), edited);
+    await tick();
+    assert.equal(store.get(key)!.phase, "ready");
+    assert.equal(store.get(key)!.height, 120);
 });

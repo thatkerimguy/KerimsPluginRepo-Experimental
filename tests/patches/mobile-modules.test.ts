@@ -23,9 +23,12 @@ const MODULES: [string, RegExp][] = [
     ["modules/messages/native/hooks/useRowManager.tsx", /\bupdateRows,/],
     ["modules/messages/native/hooks/useRowManager.tsx", /export default function/],
     ["modules/messages/native/long_press/showLongPressMessageActionSheet.tsx", /export (default )?function/],
-    // Placeholders are image embeds: transformEmbeds must still read a thumbnail's proxyURL, width and height
-    ["modules/messages/native/renderer/transformEmbeds.tsx", /null != type\.thumbnail/],
-    ["modules/messages/native/renderer/transformEmbeds.tsx", /\(\{ proxyURL, width, height \} = thumbnail\)/],
+    // Placeholders are image embeds with the marker in `image` (native shows an Image embed's media from
+    // `image` only): transformEmbeds must still pass image through renderEmbedMedia (proxyURL, width, height)
+    ["modules/messages/native/renderer/transformEmbeds.tsx", /renderEmbedMedia\(type\.image\)/],
+    ["modules/messages/native/renderer/transformEmbeds.tsx", /function renderEmbedMedia\(image\)/],
+    // Island surfaces are wrapped in Discord's theme provider (root.tsx)
+    ["modules/themes/RootThemeContextProvider.native.tsx", /export function RootThemeContextProvider\(/],
 ];
 
 for (const [path, pattern] of MODULES) {

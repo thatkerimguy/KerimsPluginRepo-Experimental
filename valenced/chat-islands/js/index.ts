@@ -17,7 +17,7 @@
 import { demoProvider } from "./demo";
 import { applyPatches } from "./discord";
 import { cancelAllMeasuring } from "./measure";
-import { onNativeEvents } from "./native";
+import { nativeLog, onNativeEvents } from "./native";
 import { registerRoot } from "./root";
 import { checkNative, createApi, handleNativeEvents, hooks, isAvailable, registry, setUnavailable, store, unavailableReason } from "./runtime";
 import { failed, resetParts, works } from "./status";
@@ -41,7 +41,10 @@ export default plugin({
             self.requireReload();
             return;
         }
-        hooks.log = (level, ...args) => logger[level]?.(...args);
+        hooks.log = (level, ...args) => {
+            logger[level]?.(...args);
+            if (level !== "info") nativeLog(level, args.map(describe).join(" "));
+        };
         registerRoot();
         onNativeEvents(handleNativeEvents, e => hooks.log("error", "Native event handling failed", e));
         checkNative();
@@ -63,3 +66,15 @@ export default plugin({
         self.requireReload();
     },
 });
+
+/** A log argument as text (errors with their stack). */
+function describe(arg: unknown): string {
+    if (arg instanceof Error) return `${arg.message}${arg.stack ? `
+${arg.stack}` : ""}`;
+    if (typeof arg === "string") return arg;
+    try {
+        return JSON.stringify(arg) ?? String(arg);
+    } catch {
+        return String(arg);
+    }
+}

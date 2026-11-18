@@ -10,6 +10,8 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AppRegistry, View } from "react-native";
 
+import { getModuleWithImportedPath } from "@valenced/discord/utils/modules/finders";
+
 import { lazy } from "./lazy";
 import { reportHeight } from "./measure";
 import { hooks, useIsland } from "./runtime";
@@ -42,7 +44,21 @@ const Boundary = lazy(() => class IslandBoundary extends Component<{ islandKey: 
     }
 });
 
-function IslandRoot({ islandKey = "", width = 0, measuring = false }: RootProps) {
+/**
+ * Discord's root theme provider (reads the theme, contrast and saturation from its stores).
+ * An island surface is a separate React root, outside Discord's provider, so without this
+ * `Design.createStyles` resolves tokens for the default (light) theme: seen on the device in
+ * 0.1.0.25 (a light card in dark mode).
+ */
+const THEME_PROVIDER_PATH = "modules/themes/RootThemeContextProvider.native.tsx";
+let ThemeProvider: ((props: { children: ReactNode; }) => ReactNode) | null = null;
+
+function IslandRoot(props: RootProps) {
+    const content = <IslandContent {...props} />;
+    return ThemeProvider ? <ThemeProvider>{content}</ThemeProvider> : content;
+}
+
+function IslandContent({ islandKey = "", width = 0, measuring = false }: RootProps) {
     const island = useIsland(islandKey);
     if (!island || !width) return null;
     works("surfaces");
@@ -66,6 +82,10 @@ let registered = false;
 /** Registers the surface module (once per app run: AppRegistry has no unregister). */
 export function registerRoot() {
     if (registered) return;
+    getModuleWithImportedPath<{ RootThemeContextProvider?: typeof ThemeProvider; }>(THEME_PROVIDER_PATH, mod => {
+        if (typeof mod?.RootThemeContextProvider === "function") ThemeProvider = mod.RootThemeContextProvider;
+        else hooks.log("warn", "Discord's RootThemeContextProvider not found: islands use the default theme");
+    });
     AppRegistry.registerComponent(SURFACE_MODULE, () => IslandRoot);
     registered = true;
 }

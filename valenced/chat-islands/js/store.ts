@@ -19,6 +19,9 @@ export interface Island {
     width?: number;
     height?: number;
     error?: unknown;
+    /** Failed prepare / measure attempts, and when the last one failed (ms). */
+    attempts?: number;
+    failedAt?: number;
     /** Session state for useIslandState. */
     state: Map<string, unknown>;
     visible: boolean;
@@ -56,6 +59,8 @@ export class IslandStore {
                     island.height = undefined;
                     island.width = undefined;
                     island.error = undefined;
+                    island.attempts = undefined;
+                    island.failedAt = undefined;
                 }
             }
             return island;
@@ -74,7 +79,7 @@ export class IslandStore {
         }
     }
 
-    update(key: string, change: Partial<Pick<Island, "phase" | "width" | "height" | "error" | "visible">>) {
+    update(key: string, change: Partial<Pick<Island, "phase" | "width" | "height" | "error" | "visible" | "attempts" | "failedAt">>) {
         const island = this.islands.get(key);
         if (!island) return;
         Object.assign(island, change);

@@ -16,8 +16,9 @@ import java.util.Collections
  * Discord 352.6 (EmbedView's bind read with Vineflower; jadx can't decompile it): an Image
  * embed's media goes to the static `MediaView.f(view, source, …)`, `source` being a media source
  * (od.c0) whose `previewUrl` is the embed image's proxyURL, our marker. The device log showed
- * that call arriving with the marker, but the Fresco build() carrying it was never seen
- * ([MarkerHook] stays as a fallback). The marker is read from the source's String fields,
+ * that call arriving with the marker, but a Fresco build() carrying it was never seen, so the
+ * Fresco hooks used before were removed (they also cost a failed reflection lookup per image).
+ * The marker is read from the source's String fields,
  * so no field names are needed; MediaView keeps its class name (layouts and Kotlin metadata).
  *
  * The placeholder view is MediaView's first child (its preview image, `inline_media_image_preview`);

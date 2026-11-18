@@ -26,6 +26,7 @@ declare module "@valenced/modules/native" {
         "thatkerimguy.chatIslands.measure": [[key: string, width: number], boolean];
         "thatkerimguy.chatIslands.measureDone": [[key: string], null];
         "thatkerimguy.chatIslands.setDebug": [[on: boolean], null];
+        "thatkerimguy.chatIslands.log": [[level: string, text: string], null];
     }
 }
 
@@ -52,6 +53,13 @@ export function startMeasuring(key: string, width: number): Promise<boolean> {
 
 export function stopMeasuring(key: string) {
     callNativeMethod(`${NATIVE}.measureDone`, [key]).catch(() => { });
+}
+
+/** Writes a JS warning or error into native's diagnostics file (Valenced's JS logger only shows them in the app). */
+export function nativeLog(level: string, text: string) {
+    try {
+        callNativeMethod(`${NATIVE}.log`, [level, text]).catch(() => { });
+    } catch { /* native part missing */ }
 }
 
 export function setNativeDebug(on: boolean) {
