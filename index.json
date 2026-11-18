@@ -9,22 +9,9 @@
       "author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
       "icon": "GifIcon",
       "channels": {
-        "latest": "1.7.1.11"
+        "latest": "1.7.3.12"
       },
       "versions": {
-        "1.6.0.7": {
-          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.7.zip",
-          "sha256": "9825c9673fce366e5395528920f5035ebcd3a69195e0af7a1a56a797d822f914",
-          "size": 20542,
-          "dependencies": {
-            "valenced.api": {
-              "version": ">=1 <2"
-            },
-            "discord": {
-              "version": "*"
-            }
-          }
-        },
         "1.6.0.8": {
           "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.6.0.8.zip",
           "sha256": "7d3d7644180c638466c8780aec80a4a9700fb85070b8641bfce721094892a197",
@@ -68,6 +55,19 @@
           "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.7.1.11.zip",
           "sha256": "c5de802a6a2ee4b61d9275e02eee2080d2ce1a256e9fa523ca572aaf7f5d0082",
           "size": 21312,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.7.3.12": {
+          "url": "https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/pool/thatkerimguy.gif-picker-optimizer-experimental@1.7.3.12.zip",
+          "sha256": "3ff4856c95c39c52b940c85187a0802ae0604557512701b64ab8d702353840e4",
+          "size": 21164,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
