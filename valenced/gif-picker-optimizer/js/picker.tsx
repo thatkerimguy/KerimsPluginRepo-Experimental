@@ -2,23 +2,20 @@
 /** @jsx valenced.react.React.createElement */
 /** @jsxFrag valenced.react.React.Fragment */
 /*
- * The GIF tab: a faster switch to it, and the main page with "favourites only".
+ * The GIF tab: a faster switch to it.
  */
 
 import { useEffect, useState } from "react";
 import { ActivityIndicator, InteractionManager, StyleSheet, View } from "react-native";
 
 import { lazy } from "./lazy";
-import type { CategoriesPageProps } from "./mainPage";
-import { canShowMainPage, MainPage } from "./mainPage";
 import type { AnyComponent } from "./modules";
 import { pickerModules } from "./modules";
-import { useSettings, useSettingsLoaded } from "./settingsStore";
+import { useSettings } from "./settingsStore";
 
-// Rendered as their own components (not called inline), so their hooks don't
-// change the wrapper's hook order when it switches between them.
+// Rendered as its own component (not called inline), so its hooks don't change
+// the wrapper's hook order when it switches to it.
 const PickerInner: AnyComponent = p => pickerModules.picker!(p);
-const CategoriesPageInner: AnyComponent = p => pickerModules.categoriesPage!(p);
 
 /** Longest the picker waits before building, even if the tab switch is still animating */
 const MAX_DEFER_MS = 300;
@@ -57,16 +54,6 @@ export function DeferredPicker({ props }: { props: Record<string, unknown>; }) {
     return <PickerInner {...props} />;
 }
 
-/** The picker's main page: only Favorites with "favourites only", else Discord's own page */
-export function CategoriesPage({ props }: { props: CategoriesPageProps; }) {
-    const { favoritesOnly } = useSettings();
-    // Right after Discord starts the saved settings may not be read yet: wait (a file
-    // read) instead of showing Trending for a moment with Favourites only on
-    const loaded = useSettingsLoaded();
-    if (!loaded) return <View style={styles().pickerPlaceholder} />;
-    if (!favoritesOnly || !canShowMainPage(props)) return <CategoriesPageInner {...props} />;
-    return <MainPage props={props} />;
-}
 
 const styles = lazy(() => StyleSheet.create({
     pickerPlaceholder: {

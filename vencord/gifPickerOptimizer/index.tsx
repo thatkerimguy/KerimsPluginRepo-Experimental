@@ -21,7 +21,6 @@ import { LocaleStore, RestAPI } from "@webpack/common";
 
 import { resetCaches } from "./cacheStats";
 import { clearPatches, expectPatch } from "./diagnostics";
-import { featured, mountCategories, needsCategories } from "./favoritesOnly";
 import { FavoritesSettings } from "./FavoritesSettings";
 import { GifTile } from "./GifTile";
 import { createCacheInvalidation } from "./invalidation";
@@ -82,16 +81,12 @@ export default definePlugin({
 
     // Used by the patches as $self
     GifTile,
-    featured,
     lowResStarted,
-    mountCategories,
-    needsCategories,
 
     start() {
         // Patches are seen working when the code they call runs (diagnostics.ts, shown in settings)
         expectPatch("results", "GIF tiles (one by one, previews)", "open the GIF picker");
         expectPatch("searchActions", "Early low resolution requests", "search for GIFs or open Trending");
-        expectPatch("categories", "Main page categories (Favourites only)", "open the GIF picker's main page");
         loadedThisSession.resize(settings.store.cacheSize);
         seen.attach(savedList(SEEN_STORE_KEY));
         failed.attach(savedList(FAILED_STORE_KEY));

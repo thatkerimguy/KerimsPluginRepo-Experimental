@@ -84,7 +84,6 @@ export default plugin<{ jsonStorage: Settings; }>({
         expectPatch("resultsList", "On-screen GIFs first", "open the GIF picker");
         expectPatch("searchActions", "Early low resolution requests", "search for GIFs or open Trending");
         expectPatch("picker", "Faster GIF tab switch", "open the GIF tab");
-        expectPatch("categoriesPage", "Main page (Favourites only)", "open the GIF tab's main page");
 
         seen.attach(savedList("seen.json"));
         failed.attach(savedList("failed.json"));

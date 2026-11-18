@@ -197,22 +197,10 @@ export default function SettingsComponent({ api: { jsonStorage: storage } }: Pro
 
                     <TableRowGroup title={SECTIONS.picker.title}>
                         <TableSwitchRow
-                            label={TEXT.favoritesOnly.title}
-                            subLabel={TEXT.favoritesOnly.description}
-                            value={s.favoritesOnly}
-                            onValueChange={(favoritesOnly: boolean) => update({ favoritesOnly })}
-                        />
-                        <TableSwitchRow
                             label={TEXT.fastTabSwitch.title}
                             subLabel={TEXT.fastTabSwitch.description}
                             value={s.fastTabSwitch}
                             onValueChange={(fastTabSwitch: boolean) => update({ fastTabSwitch })}
-                        />
-                        <TableSwitchRow
-                            label={TEXT.viewportBuffer.title}
-                            subLabel={TEXT.viewportBuffer.description}
-                            value={s.viewportBuffer}
-                            onValueChange={(viewportBuffer: boolean) => update({ viewportBuffer })}
                         />
                     </TableRowGroup>
 

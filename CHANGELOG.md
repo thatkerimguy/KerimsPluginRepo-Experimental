@@ -5,6 +5,13 @@ the rules that came out of these entries are in CLAUDE.md; how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
+## Unreleased
+
+**Removed on 2026-11-18 (the user's call; to be rebuilt from scratch in a separate plugin later):**
+- **Favourites only** (both builds): still delayed on mobile after 1.7.2's wait for the saved settings. Removed the desktop patch on the `hideFavoritesTile:` module (`mountCategories`, `featured`, `needsCategories`, `favoritesOnly.ts`), the mobile `GIFPickerCategoriesPage` patch, `CategoriesPage` and `mainPage.tsx`, the `GIFPickerUtils` / `GIFPickerCategoryView` lookups, `useSettingsLoaded`, and the desktop "GIF picker" settings heading (its only setting). Discord's main page with Trending is back.
+- **Viewport buffer** (mobile): caused lag. Discord's `drawDistance` is left alone again.
+- Old saved `favoritesOnly` / `viewportBuffer` values are ignored. Checks: both type checks, mobile build + pre-init check, 55 unit tests, the patch test (2 patches now, all match).
+
 ## 1.7.2 (2026-11-17)
 
 - Mobile: **Viewport buffer** setting (on by default): GIFs are prepared about three rows past the screen edge, so they don't pop in blank while you scroll.

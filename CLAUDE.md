@@ -33,18 +33,18 @@ Shared (both builds, kept in sync by the script):
 
 Vencord (`vencord/gifPickerOptimizer/`):
 - `index.tsx`: `definePlugin`, flux handler, start/stop (queue settings, connection listener, flush on close / hidden, expected patches). `patches.ts`: the webpack patches as plain data (tested against Discord's code).
-- `settings.tsx`: settings in sections (Previews, Loading, GIF picker, Favourites, Status and cache; the headings are value-less component settings from `SettingsHeader.tsx`), each with a `displayName` and wording from `settingsText.ts`; Preview size and GIFs at the same time have description getters that say what Auto is using right now; GIFs at the same time, On-screen GIFs first and Skip slow GIFs after are `hidden` while Load one by one is off. Also `quality()`, `applyQueueSettings` (on start, setting change, connection change), `loadConcurrency`. `CacheSettings.tsx`: `PatchesSettings` and `CacheSettings` (one-line summary, details in an `ExpandableSection`; the cache one also has the reset button). `cacheStats.ts`: `cacheNumbers`, `resetCaches`. index.tsx clears the caches on any `plugins.GIFs+.*` change except `enabled` (`SettingsStore.addPrefixChangeListener`). `RestoreDefaults` (in settings.tsx, to avoid an import cycle) puts every option back to its `default` after a confirmation.
+- `settings.tsx`: settings in sections (Previews, Loading, Favourites, Status and cache; the headings are value-less component settings from `SettingsHeader.tsx`), each with a `displayName` and wording from `settingsText.ts`; Preview size and GIFs at the same time have description getters that say what Auto is using right now; GIFs at the same time, On-screen GIFs first and Skip slow GIFs after are `hidden` while Load one by one is off. Also `quality()`, `applyQueueSettings` (on start, setting change, connection change), `loadConcurrency`. `CacheSettings.tsx`: `PatchesSettings` and `CacheSettings` (one-line summary, details in an `ExpandableSection`; the cache one also has the reset button). `cacheStats.ts`: `cacheNumbers`, `resetCaches`. index.tsx clears the caches on any `plugins.GIFs+.*` change except `enabled` (`SettingsStore.addPrefixChangeListener`). `RestoreDefaults` (in settings.tsx, to avoid an import cycle) puts every option back to its `default` after a confirmation.
 - `state.ts`: `createTracking(...)` exports, `runtime` (`KlipyResolver`, `LowResPages` while running), DataStore keys, `PLUGIN_VERSION` (must equal the Valenced manifest version; `tests/unit/invalidation.test.ts` checks). `preconnect.ts`: `<link rel=preconnect>` to a GIF host when a tile queues (the loader's `warmUp`), at most every 10 s per host.
 - `previews.ts`: `pickSrc`, `pickStill`, `createLowResPages`, `lowResStarted`, Klipy favourite lookups.
 - `GifTile.tsx`: the tile (shared loader). `components.tsx`: `Indicator`, `LoadOverlay` (probe image only while loading; a tile shown from cache listens for its own `<img>` error), `StillTile`. `stillFrames.ts`: frame capture and its LRU. `viewport.ts`: `ViewportWatcher` / `useViewport` (on-screen state for queue priority).
-- `favoritesOnly.ts`: helpers called from patches. `favorites.ts`: `favoritesBackend`, `favoriteItems()`. `FavoritesSettings.tsx` (export to a file, import with one confirmation for replace and other sites), `types.ts` (tile props).
+- `favorites.ts`: `favoritesBackend`, `favoriteItems()`. `FavoritesSettings.tsx` (export to a file, import with one confirmation for replace and other sites), `types.ts` (tile props).
 
 Valenced (`valenced/gif-picker-optimizer/js/`):
 - `index.tsx`: `plugin({...})` and the start wiring (`runtime.*`, saved lists, expected patches, `AppState` flush). `patches.tsx`: every patch and module lookup (`applyPatches(cleanup)`).
 - `settingsStore.ts`: settings storage, hooks, `cacheControl` (cache figures and reset while running). `settings.tsx`: settings page in groups (Previews, Loading, GIF picker, Favourites, Status and cache, then Restore default settings with a confirmation), wording from `settingsText.ts`; multi-value settings are one row with the current value that lists the values under it when tapped (`choiceRows`, one open at a time, plain rows so the group draws them); Patches and Cache show a summary row that expands. `cacheStats.ts`: `cacheNumbers`, `resetCaches`.
 - `state.ts`: `createTracking(...)` exports, `runtime`, `applyQueueSettings`. `nativeCache.ts`: `isNativeCached` (batched `Image.queryCache`). `tenor.ts`: `TenorPageResolver` (fallback only). `previews.ts`: `pickSrc`, `lookupFor`, `createLowResPages`, Tenor media from the saved src.
-- `viewport.tsx`: `ViewportStore`, `OptimizedResultsList` (also applies queue settings), `useVisibleIndex`. `tile.tsx`: `GifTile` (shared loader; `enabled` = Discord's tree has the Image, found once with `findInTree`, swapped with `replaceAt`). `indicator.tsx`: the animated `Indicator` (shared loops, `useTransition`). `tree.ts`: typed tree helpers. `picker.tsx`: deferred picker and the categories page switch.
-- `modules.ts`: `pickerModules`. `favorites.ts`: `favoritesBackend`. `alerts.tsx` (toast, confirm alert), `mainPage.tsx`, `favoritesSettings.tsx` (export to clipboard/share, import from clipboard).
+- `viewport.tsx`: `ViewportStore`, `OptimizedResultsList` (also applies queue settings), `useVisibleIndex`. `tile.tsx`: `GifTile` (shared loader; `enabled` = Discord's tree has the Image, found once with `findInTree`, swapped with `replaceAt`). `indicator.tsx`: the animated `Indicator` (shared loops, `useTransition`). `tree.ts`: typed tree helpers. `picker.tsx`: deferred picker (faster tab switch).
+- `modules.ts`: `pickerModules`. `favorites.ts`: `favoritesBackend`. `alerts.tsx` (toast, confirm alert), `favoritesSettings.tsx` (export to clipboard/share, import from clipboard).
 
 Repo: `tests/` (Node tests, TESTING.md), `.github/scripts/` (`sync-shared.mjs`, `setup-valenced-template.sh`, `preinit-check.cjs`), `.github/workflows/` (`checks.yml`, `valenced-repo.yml`).
 
@@ -56,6 +56,8 @@ Repo: `tests/` (Node tests, TESTING.md), `.github/scripts/` (`sync-shared.mjs`, 
 4. Port the mobile build from Raincord to Valenced.
 5. Big favourite libraries should perform well on mobile and desktop: on-screen GIFs first, with caching. (Off-screen unloading was built, then removed: Discord's lists already unmount tiles that scroll away.)
 6. Optional (off by default): still image previews in the favourites tab instead of playing GIFs.
+
+Removed on 2026-11-18 (the user's call, to be rebuilt from scratch in a separate plugin later): **Favourites only** (desktop patches on the `hideFavoritesTile:` module, mobile `GIFPickerCategoriesPage` patch and `mainPage.tsx`; still delayed after the settings-loaded fix) and mobile **Viewport buffer** (`drawDistance` 540 px; caused lag). Old saved values are ignored.
 
 ## The user's setup
 
@@ -150,7 +152,7 @@ A preview is only used if it's the same media type as the original (video stays 
 - **Mobile: never use a React or React Native import as a shorthand object key** (`{ useState, useEffect }`): the build rewrites it there too and the bundle doesn't parse. Pass the `React` namespace instead (tile.tsx).
 - **Mobile: never remove a native-driven animated style from a view that stays mounted** (React Native leaves the view at the last native value). Shared native loops reset their value to 0 when they restart.
 - **Mobile: the flux patch must return the payload**, or the event is blocked.
-- **Mobile: settings are read in the background after start** (`jsonStorage` `load: true` doesn't wait for the file). Until then they're the defaults: anything that must not flash the default (Favourites only) waits with `useSettingsLoaded()`, and start-time settings are applied again with `whenSettingsLoaded()`.
+- **Mobile: settings are read in the background after start** (`jsonStorage` `load: true` doesn't wait for the file). Until then they're the defaults: start-time settings are applied again with `whenSettingsLoaded()`, and anything that must not show the default first should wait for `settingsLoaded()`.
 - **Releasing: bump `PLUGIN_VERSION` (desktop state.ts) with the manifest version.** A new version clears the caches on both builds.
 - **Mobile: turning the plugin on or off asks for a reload** (`plugin.startedLate` → `requireReload()` and start nothing; `stop` → `requireReload()`): patching a picker that's already loaded only half works.
 - **Imports are untrusted:** `parseExport` only takes https entries, and any site outside the known GIF hosts is shown to the user before importing (`otherSitesWarning`).
@@ -196,9 +198,7 @@ A preview is only used if it's the same media type as the original (video stays 
 | klipyLookup | on |
 | cacheSize | 1000 |
 | stillFavorites | off |
-| favoritesOnly | off |
 | fastTabSwitch (mobile only) | on |
-| viewportBuffer (mobile only) | on (`drawDistance` ≥ 540 px instead of Discord's 180, in `OptimizedResultsList`) |
 
 Desktop quality also has `auto` (S, or SD at `devicePixelRatio >= 2`), not the default. Mobile defaults are the same except concurrency 3 (no Auto), and no `prioritizeVisible` (always on). Mobile quality is `s` (was `xs` before the 1.6.0 follow-up).
 

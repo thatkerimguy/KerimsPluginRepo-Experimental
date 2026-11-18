@@ -102,14 +102,6 @@ export const settings = definePluginSettings({
         default: true,
     },
 
-    pickerHeader: header(SECTIONS.picker),
-    favoritesOnly: {
-        type: OptionType.BOOLEAN,
-        displayName: TEXT.favoritesOnly.title,
-        description: TEXT.favoritesOnly.description,
-        default: false,
-    },
-
     // Panels that use the settings themselves (index.tsx fills settingsPanels in, to avoid an import cycle)
     favorites: {
         type: OptionType.COMPONENT,

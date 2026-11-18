@@ -18,7 +18,7 @@ import type { FrecencyActions } from "./favoritesBackend";
 import type { GifItem } from "./items";
 import type { AnyComponent } from "./modules";
 import { pickerModules } from "./modules";
-import { CategoriesPage, DeferredPicker } from "./picker";
+import { DeferredPicker } from "./picker";
 import type { HttpClient } from "./state";
 import { runtime } from "./state";
 import type { ItemProps } from "./tile";
@@ -31,9 +31,6 @@ const ACTIONS_PATH = "actions/GIFPickerActionCreators.tsx";
 const ITEM_VIEW_PATH = `${GIF_PICKER}GIFPickerItemView.tsx`;
 const RESULTS_LIST_PATH = `${GIF_PICKER}GIFPickerResultsList.tsx`;
 const PICKER_PATH = `${GIF_PICKER}GIFPicker.tsx`;
-const CATEGORIES_PAGE_PATH = `${GIF_PICKER}GIFPickerCategoriesPage.tsx`;
-const PICKER_UTILS_PATH = `${GIF_PICKER}GIFPickerUtils.tsx`;
-const CATEGORY_VIEW_PATH = `${GIF_PICKER}GIFPickerCategoryView.tsx`;
 
 /** React.memo object: patching `type` changes what every picker renders */
 type Memo = { type: AnyComponent; };
@@ -148,14 +145,6 @@ export function applyPatches(cleanup: Cleanup) {
             );
         }),
 
-        getModuleWithImportedPath<NonNullable<typeof pickerModules.utils>>(PICKER_UTILS_PATH, mod => {
-            pickerModules.utils = mod;
-        }),
-
-        getModuleWithImportedPath<{ default: AnyComponent; }>(CATEGORY_VIEW_PATH, mod => {
-            pickerModules.categoryView = mod;
-        }),
-
         // Faster GIF tab switch
         getModuleWithImportedPath<{ default: Memo; }>(PICKER_PATH, mod => {
             const memo = mod.default;
@@ -169,22 +158,6 @@ export function applyPatches(cleanup: Cleanup) {
                 patchWorks("picker");
                 pickerModules.picker = orig;
                 return <DeferredPicker props={args[0] ?? {}} />;
-            }));
-        }),
-
-        // Main page with favourites only
-        getModuleWithImportedPath<{ default: Memo; }>(CATEGORIES_PAGE_PATH, mod => {
-            const memo = mod.default;
-            if (typeof memo?.type !== "function") {
-                runtime.logger?.warn?.("GIFPickerCategoriesPage isn't a memo component any more, favourites only is off");
-                patchFailed("categoriesPage", "GIFPickerCategoriesPage isn't a memo component any more");
-                return;
-            }
-            pickerModules.categoriesPage = memo.type;
-            cleanup(instead(memo, "type", (args, orig) => {
-                patchWorks("categoriesPage");
-                pickerModules.categoriesPage = orig;
-                return <CategoriesPage props={args[0] ?? {}} />;
             }));
         }),
     );

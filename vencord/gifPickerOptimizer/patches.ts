@@ -32,25 +32,4 @@ export const patches: Omit<Patch, "plugin">[] = [
             },
         ],
     },
-    {
-        // GIF picker main page (categories grid) and the page around it
-        find: "hideFavoritesTile:",
-        replacement: [
-            {
-                // Don't fetch trending categories on mount ("Favourites only")
-                match: /0===this\.props\.trendingCategories\.length&&\(0,(\i\.\i)\)\(\)/,
-                replace: "$self.mountCategories(this.props.trendingCategories,$1)",
-            },
-            {
-                // The tiles: [favorites, ...trendingCategories]
-                match: /(this\.memoizedData\(this\.state\.favoritesTile,)this\.props\.trendingCategories/,
-                replace: "$1$self.featured(this.props.trendingCategories)",
-            },
-            {
-                // Shows a loading skeleton while there are no trending categories
-                match: /(trendingCategories:(\i)\}=this\.props;return )0===\2\.length/,
-                replace: "$1$self.needsCategories($2)",
-            },
-        ],
-    },
 ];

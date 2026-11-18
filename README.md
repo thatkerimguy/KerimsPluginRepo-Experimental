@@ -37,9 +37,7 @@ Favourites saved from chat embeds sit behind Discord's media proxy. For Tenor, G
 | Anything else, including Klipy | **Desktop:** the first frame, captured locally. **Mobile:** stays animated (React Native can't pause an animated image). |
 
 ### GIF picker
-- **Favourites only (optional).** Hides Trending and the featured categories on the picker's main page. Search and Favorites stay.
 - **Faster GIF tab switch (mobile).** The GIF tab opens at once, and the picker is built right after, instead of the app freezing for a moment.
-- **Viewport buffer (mobile).** GIFs are prepared about three rows past the screen edge, so they don't pop in blank while you scroll. Discord's own list only prepares about one row.
 
 ### Favourites
 - **Export and import.** Save your favourites to a file (desktop) or the clipboard (mobile), and import them on another account. Import can **merge** into your favourites or **replace** them. Imports over Discord's favourites limit are refused.
@@ -63,9 +61,7 @@ Favourites saved from chat embeds sit behind Discord's media proxy. For Tenor, G
 | | On-screen GIFs first (desktop) | On |
 | | Skip slow GIFs after | 10 seconds |
 | | Loading indicators | On |
-| GIF picker | Favourites only | Off |
-| | Faster GIF tab switch (mobile) | On |
-| | Viewport buffer (mobile) | On |
+| GIF picker | Faster GIF tab switch (mobile) | On |
 | Favourites | Export, import and merge, import and replace | |
 | Status and cache | Patches, remembered GIFs (1000), cache stats, reset | |
 | | Restore default settings | |
