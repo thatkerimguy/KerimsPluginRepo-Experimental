@@ -5,7 +5,9 @@ the rules that came out of these entries are in CLAUDE.md; how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
-## Unreleased
+## 1.7.3 (2026-11-18)
+
+- Removed **Favourites only** (desktop and mobile) and **Viewport buffer** (mobile). The GIF picker's main page and list are Discord's own again. They may come back later in a separate plugin.
 
 **Removed on 2026-11-18 (the user's call; to be rebuilt from scratch in a separate plugin later):**
 - **Favourites only** (both builds): still delayed on mobile after 1.7.2's wait for the saved settings. Removed the desktop patch on the `hideFavoritesTile:` module (`mountCategories`, `featured`, `needsCategories`, `favoritesOnly.ts`), the mobile `GIFPickerCategoriesPage` patch, `CategoriesPage` and `mainPage.tsx`, the `GIFPickerUtils` / `GIFPickerCategoryView` lookups, `useSettingsLoaded`, and the desktop "GIF picker" settings heading (its only setting). Discord's main page with Trending is back.
