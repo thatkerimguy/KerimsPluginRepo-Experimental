@@ -1,0 +1,132 @@
+{
+  "code": 200,
+  "message": "OK",
+  "tweet": {
+    "url": "https://x.com/saltandsea/status/1858000000000000099",
+    "id": "1858000000000000099",
+    "text": "Which one should open the zine?\n\nVideo of the shoot below 👇",
+    "author": {
+      "name": "Salt & Sea",
+      "screen_name": "saltandsea",
+      "avatar_url": "https://pbs.twimg.com/profile_images/3/ghi_200x200.jpg",
+      "url": "https://x.com/saltandsea"
+    },
+    "replies": 12,
+    "retweets": 3,
+    "likes": 88,
+    "views": 4100,
+    "created_timestamp": 1794820000,
+    "possibly_sensitive": false,
+    "replying_to": "noralind",
+    "replying_to_status": "1858000000000000020",
+    "media": {
+      "all": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/720x1280/clip.mp4?tag=12",
+          "thumbnail_url": "https://pbs.twimg.com/ext_tw_video_thumb/1858/pu/img/thumb.jpg",
+          "width": 720,
+          "height": 1280,
+          "duration": 34.5,
+          "format": "video/mp4",
+          "variants": [
+            {
+              "content_type": "application/x-mpegURL",
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/pl/playlist.m3u8?tag=12"
+            },
+            {
+              "content_type": "video/mp4",
+              "bitrate": 632000,
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/320x568/clip.mp4?tag=12"
+            },
+            {
+              "content_type": "video/mp4",
+              "bitrate": 2176000,
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/720x1280/clip.mp4?tag=12"
+            },
+            {
+              "content_type": "video/mp4",
+              "bitrate": 950000,
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/480x852/clip.mp4?tag=12"
+            }
+          ]
+        }
+      ],
+      "videos": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/720x1280/clip.mp4?tag=12",
+          "thumbnail_url": "https://pbs.twimg.com/ext_tw_video_thumb/1858/pu/img/thumb.jpg",
+          "width": 720,
+          "height": 1280,
+          "duration": 34.5,
+          "format": "video/mp4",
+          "variants": [
+            {
+              "content_type": "application/x-mpegURL",
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/pl/playlist.m3u8?tag=12"
+            },
+            {
+              "content_type": "video/mp4",
+              "bitrate": 632000,
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/320x568/clip.mp4?tag=12"
+            },
+            {
+              "content_type": "video/mp4",
+              "bitrate": 2176000,
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/720x1280/clip.mp4?tag=12"
+            },
+            {
+              "content_type": "video/mp4",
+              "bitrate": 950000,
+              "url": "https://video.twimg.com/ext_tw_video/1858/pu/vid/avc1/480x852/clip.mp4?tag=12"
+            }
+          ]
+        }
+      ]
+    },
+    "quote": {
+      "url": "https://x.com/harbourlight/status/1857000000000000001",
+      "id": "1857000000000000001",
+      "text": "Tide tables for the whole coast are up &amp; free. Plan your sunrise shots.",
+      "author": {
+        "name": "Harbour Light",
+        "screen_name": "harbourlight",
+        "avatar_url": "https://pbs.twimg.com/profile_images/2/def_200x200.jpg",
+        "url": "https://x.com/harbourlight"
+      },
+      "replies": 48,
+      "retweets": 310,
+      "likes": 2100,
+      "views": 90000,
+      "created_timestamp": 1794700000,
+      "media": {
+        "all": [
+          {
+            "type": "photo",
+            "url": "https://pbs.twimg.com/media/GcTide.png?name=orig",
+            "width": 600,
+            "height": 400
+          }
+        ]
+      }
+    },
+    "poll": {
+      "choices": [
+        {
+          "label": "Cliffs",
+          "count": 60,
+          "percentage": 60
+        },
+        {
+          "label": "Harbour",
+          "count": 40,
+          "percentage": 40
+        }
+      ],
+      "total_votes": 100,
+      "ends_at": "2026-11-10T12:00:00.000Z",
+      "time_left_en": "Final results"
+    }
+  }
+}

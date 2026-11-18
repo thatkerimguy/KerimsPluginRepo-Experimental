@@ -1,5 +1,7 @@
 # KerimsPluginRepo — handoff notes
 
+Second project in this repo: **Social Embeds** (app-like X / Reddit / TikTok / Instagram widgets) and **Chat Islands** (a Valenced library for React views inside mobile chat). Its plan, structure and rules are in `SOCIAL_EMBEDS_PLAN.md`; read that before working on `valenced/chat-islands/`, `valenced/social-embeds/` or `vencord/socialEmbeds/`. Everything below is about GIFs+.
+
 GIFs+ (called GifPickerOptimizer before 1.6.0): a Discord GIF picker plugin with two builds. The Vencord plugin name is `GIFs+` (Vencord has a built-in `BetterGifPicker`; `migratePluginSettings` moves the old `GifPickerOptimizer` settings). The Valenced id stays `thatkerimguy.gif-picker-optimizer`, its manifest name is `GIFs+`. Source folder names and DataStore keys keep the old names.
 
 - `vencord/gifPickerOptimizer/`: Vencord user plugin for desktop and web. **This is the one being installed and tested now.**

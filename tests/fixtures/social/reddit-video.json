@@ -1,0 +1,77 @@
+[
+  {
+    "kind": "Listing",
+    "data": {
+      "children": [
+        {
+          "kind": "t3",
+          "data": {
+            "id": "1gy9vid",
+            "title": "Timelapse of the tide coming in",
+            "selftext": "",
+            "author": "saltandsea",
+            "subreddit": "timelapse",
+            "created_utc": 1794810000,
+            "score": 15200,
+            "num_comments": 402,
+            "upvote_ratio": 0.95,
+            "over_18": false,
+            "spoiler": true,
+            "permalink": "/r/timelapse/comments/1gy9vid/timelapse_of_the_tide/",
+            "url": "https://v.redd.it/abc123",
+            "domain": "v.redd.it",
+            "is_self": false,
+            "is_video": true,
+            "post_hint": "hosted:video",
+            "secure_media": {
+              "reddit_video": {
+                "fallback_url": "https://v.redd.it/abc123/DASH_1080.mp4?source=fallback",
+                "hls_url": "https://v.redd.it/abc123/HLSPlaylist.m3u8?a=1&amp;v=1",
+                "dash_url": "https://v.redd.it/abc123/DASHPlaylist.mpd",
+                "width": 1920,
+                "height": 1080,
+                "duration": 42,
+                "is_gif": false,
+                "has_audio": true
+              }
+            },
+            "preview": {
+              "images": [
+                {
+                  "source": {
+                    "url": "https://external-preview.redd.it/thumb.png?format=pjpg&amp;s=1",
+                    "width": 1920,
+                    "height": 1080
+                  },
+                  "resolutions": [
+                    {
+                      "url": "https://external-preview.redd.it/thumb.png?width=108&amp;s=2",
+                      "width": 108,
+                      "height": 60
+                    },
+                    {
+                      "url": "https://external-preview.redd.it/thumb.png?width=320&amp;s=3",
+                      "width": 320,
+                      "height": 180
+                    },
+                    {
+                      "url": "https://external-preview.redd.it/thumb.png?width=640&amp;s=4",
+                      "width": 640,
+                      "height": 360
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "kind": "Listing",
+    "data": {
+      "children": []
+    }
+  }
+]

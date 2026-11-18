@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "thatkerimguy.chat-islands",
+	"name": "Chat Islands",
+	"description": "Library: lets other plugins show React views inside chat messages. Android only.",
+	"author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
+	"icon": "ChatIcon",
+	"version": "0.1.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "dev.thatkerimguy.chatislands.ChatIslands"
+		}
+	}
+}

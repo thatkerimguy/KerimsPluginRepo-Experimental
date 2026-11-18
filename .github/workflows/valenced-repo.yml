@@ -6,15 +6,18 @@
 # A version is published once. To release a change, bump "version" in the plugin's
 # manifest.json. Published ZIPs are never rebuilt, so their SHA-256 in index.json stays valid.
 #
-# Plugins here are JS-only, so this builds with the template's CLI directly instead of
-# Gradle (which needs a read:packages token for the native Valenced API).
+# JS is built with the template's CLI directly. Plugins with a native part (src/main,
+# e.g. chat-islands) also get their Kotlin compiled with the template's Gradle build
+# (dexJar; the Valenced API comes from GitHub Packages with this run's token) and the
+# jar added to the ZIP at dist.android.path.
 #
 # Experimental mode: the same file runs in thatkerimguy/KerimsPluginRepo-Experimental
 # (any repository whose name ends in "-Experimental"), a copy of this one for testing.
 # There every push publishes a new build without bumping the manifest: version
 # <manifest version>.<run number>, plugin id <id>-experimental and name "<name>
 # Experimental", so it installs next to the stable plugin with its own storage
-# (enable only one of them). Only the newest 5 experimental builds are kept.
+# (enable only one of them). Dependencies on our own plugins are renamed the same way.
+# Only the newest 5 experimental builds are kept.
 
 name: Publish Valenced repository
 
@@ -29,6 +32,8 @@ on:
 
 permissions:
   contents: write
+  # The native Valenced plugin API (Gradle builds of native parts)
+  packages: read
 
 concurrency:
   group: valenced-repo
@@ -75,10 +80,20 @@ jobs:
         with:
           bun-version: 1.3.5
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Android SDK platform and build tools (native parts)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
       - name: Set up the Valenced plugin template (pinned)
         run: bash src/.github/scripts/setup-valenced-template.sh template
 
       - name: Build and package new versions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           for manifest in src/valenced/*/manifest.json; do
@@ -101,7 +116,8 @@ jobs:
             built_manifest="template/plugins/$name/manifest.json"
             if [ "$EXPERIMENTAL" = "true" ]; then
               jq --arg id "$id" --arg version "$version" \
-                '.id = $id | .version = $version | .name = "\(.name) Experimental" | .description = "Test build, may be broken. \(.description)"' \
+                '.id = $id | .version = $version | .name = "\(.name) Experimental" | .description = "Test build, may be broken. \(.description)"
+                 | .dependencies |= with_entries(if (.key | startswith("thatkerimguy.")) then .key += "-experimental" else . end)' \
                 "$manifest" > "$built_manifest"
               # The plugin's storage paths use PLUGIN_ID: point them at the experimental id
               grep -rl --include='*.ts' --include='*.tsx' "\"$stable_id\"" "template/plugins/$name/js" \
@@ -114,13 +130,22 @@ jobs:
             (cd template && bun run build "$name")
             # Fails when the script would throw while Valenced loads it during app boot
             node src/.github/scripts/preinit-check.cjs "template/plugins/$name/build/js/index.js"
-            python3 - "$built_manifest" "template/plugins/$name/build/js/index.js" "$zip" <<'PY'
+            jar=""
+            if [ -d "template/plugins/$name/src/main" ]; then
+              (cd template && ./gradlew --no-daemon -q ":plugins:$name:dexJar")
+              jar="template/plugins/$name/build/outputs/plugin/plugin.jar"
+            fi
+            python3 - "$built_manifest" "template/plugins/$name/build/js/index.js" "$zip" "$jar" <<'PY'
           import json, sys, zipfile
-          manifest, script, out = sys.argv[1:]
+          manifest, script, out, jar = sys.argv[1:]
           m = json.load(open(manifest))
           with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
               z.write(manifest, "manifest.json")
               z.write(script, m["dist"]["script"])
+              if m["dist"].get("android"):
+                  if not jar:
+                      sys.exit(f"{m['id']} declares dist.android but has no src/main")
+                  z.write(jar, m["dist"]["android"]["path"])
           PY
             if [ "$EXPERIMENTAL" = "true" ]; then
               # Keep only the newest experimental builds

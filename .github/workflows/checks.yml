@@ -2,7 +2,9 @@
 # - the shared files are the same in both builds (.github/scripts/sync-shared.mjs)
 # - unit tests (tests/unit), including the Vencord module-level check
 # - the Vencord plugin type checks against Vencord's latest source
-# - the Valenced plugin builds (pinned toolchain), type checks and survives pre-init
+# - the Valenced plugins build (pinned toolchain), type check and survive pre-init
+# - the Valenced plugins' native (Kotlin) parts compile
+# - Social Embeds' shared core is the same in both builds (.github/scripts/sync-social-core.mjs)
 # - the Vencord patches still match Discord's code (also weekly, since Discord changes)
 
 name: Checks
@@ -28,6 +30,7 @@ jobs:
         with:
           node-version: "22.18"
       - run: node .github/scripts/sync-shared.mjs --check
+      - run: node .github/scripts/sync-social-core.mjs --check
 
   unit-tests:
     if: github.event_name != 'schedule'
@@ -109,7 +112,50 @@ jobs:
         working-directory: template
         run: |
           set -euo pipefail
-          cp -r ../src/valenced/gif-picker-optimizer plugins/
-          bun run build gif-picker-optimizer
-          bunx tsc -b plugins/gif-picker-optimizer/tsconfig.json
-          node ../src/.github/scripts/preinit-check.cjs plugins/gif-picker-optimizer/build/js/index.js
+          for manifest in ../src/valenced/*/manifest.json; do
+            dir="$(dirname "$manifest")"
+            name="$(basename "$dir")"
+            echo "::group::$name"
+            cp -r "$dir" plugins/
+            bun run build "$name"
+            bunx tsc -b "plugins/$name/tsconfig.json"
+            node ../src/.github/scripts/preinit-check.cjs "plugins/$name/build/js/index.js"
+            echo "::endgroup::"
+          done
+
+  valenced-native:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The Valenced plugin API comes from GitHub Packages
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Android SDK platform and build tools
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" > /dev/null
+      - name: Set up the Valenced plugin template (pinned)
+        run: bash src/.github/scripts/setup-valenced-template.sh template
+      - name: Compile and package native plugins
+        working-directory: template
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for dir in ../src/valenced/*/; do
+            if [ -d "$dir/src/main" ]; then cp -r "$dir" plugins/; fi
+          done
+          ./gradlew --no-daemon packageAllPlugins
+          find . -path ./node_modules -prune -o -name '*.zip' -print

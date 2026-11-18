@@ -1,0 +1,317 @@
+{
+  "code": 200,
+  "message": "OK",
+  "tweet": {
+    "url": "https://x.com/noralind/status/1858000000000000020",
+    "id": "1858000000000000020",
+    "text": "A week on the northern coast. All 20 frames, in the order I shot them. #filmphotography with @harbourlight https://example.com/coast",
+    "author": {
+      "id": "1500000000000000001",
+      "name": "Nora Lindqvist",
+      "screen_name": "noralind",
+      "avatar_url": "https://pbs.twimg.com/profile_images/1500000000000000001/abc_200x200.jpg",
+      "url": "https://x.com/noralind",
+      "verification": {
+        "verified": true,
+        "type": "individual"
+      }
+    },
+    "replies": 214,
+    "retweets": 1200,
+    "likes": 9800,
+    "bookmarks": 310,
+    "views": 412000,
+    "created_at": "Mon Nov 16 09:00:00 +0000 2026",
+    "created_timestamp": 1794819600,
+    "possibly_sensitive": false,
+    "lang": "en",
+    "replying_to": null,
+    "replying_to_status": null,
+    "media": {
+      "all": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto01.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": "Cliffs at sunrise"
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto02.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto03.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto04.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto05.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto06.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto07.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto08.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto09.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto10.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto11.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto12.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto13.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto14.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto15.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto16.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto17.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto18.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto19.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto20.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        }
+      ],
+      "photos": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto01.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": "Cliffs at sunrise"
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto02.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto03.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto04.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto05.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto06.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto07.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto08.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto09.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto10.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto11.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto12.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto13.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto14.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto15.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto16.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto17.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto18.jpg?name=orig",
+          "width": 1080,
+          "height": 1350,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto19.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GcPhoto20.jpg?name=orig",
+          "width": 2048,
+          "height": 1366,
+          "altText": ""
+        }
+      ]
+    }
+  }
+}
