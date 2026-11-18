@@ -70,6 +70,7 @@ object Runtime {
             active = true
             registerMethods()
             hook = MarkerHook(scope).also { hooked = it.install() }
+            DiagHooks.install(scope)
             if (!hooked) problem("The chat's image views weren't found on this Discord version (${hook?.failure ?: "unknown"})")
             scope.withAppActivity { a ->
                 guarded("activity") {
