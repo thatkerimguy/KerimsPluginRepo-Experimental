@@ -82,6 +82,7 @@ class MarkerHook(private val scope: PluginScope) {
                     markerControllers[controller] = url
                 } catch (e: Throwable) {
                     scope.log.w("build hook failed", e)
+                    DiagLog.line("build hook failed: ${e.stackTraceToString()}")
                 }
             }
         })
@@ -107,10 +108,12 @@ class MarkerHook(private val scope: PluginScope) {
                     Hosts.onBound(view, marker)
                 } catch (e: Throwable) {
                     scope.log.w("setController hook failed", e)
+                    DiagLog.line("setController hook failed: ${e.stackTraceToString()}")
                 }
             }
         })
         scope.log.i("Hooked ${builderClass.name}.build and ${draweeView.name}.setController")
+        DiagLog.line("Hooked ${builderClass.name}.build and ${draweeView.name}.setController")
         return true
     }
 

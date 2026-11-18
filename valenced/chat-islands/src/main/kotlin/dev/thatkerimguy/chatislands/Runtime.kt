@@ -74,6 +74,7 @@ object Runtime {
             scope.withAppActivity { a ->
                 guarded("activity") {
                     activity = a
+                    DiagLog.open(a.applicationContext)
                     // Discord's React root view doesn't exist yet: the surface API is looked
                     // up when JS listens (resolveSurfaces)
                     pool = SurfacePool(a)
@@ -107,6 +108,7 @@ object Runtime {
             block()
         } catch (e: Throwable) {
             scope.log.e("$what failed", e)
+            DiagLog.line("$what failed: ${e.stackTraceToString()}")
             scope.errors.tryEmit(e)
         }
     }
@@ -116,7 +118,7 @@ object Runtime {
         val pool = pool ?: return
         if (surfacesWork) return
         surfacesWork = pool.resolve()
-        if (surfacesWork) scope.log.i("React surfaces available")
+        if (surfacesWork) scope.log.i("React surfaces available").also { DiagLog.line("React surfaces available") }
         else problem("React surfaces aren't available (${pool.failure ?: "unknown"})")
     }
 
@@ -128,12 +130,14 @@ object Runtime {
      * [MAX_DIAG]; [key] lines (markers, hosts) have their own, so noise can't crowd them out.
      */
     fun diag(message: String, key: Boolean = false) {
+        DiagLog.line(message)
         val n = (if (key) keyDiagCount else diagCount).incrementAndGet()
         if (n <= MAX_DIAG) scope.log.i("diag: $message")
     }
 
     fun problem(message: String) {
         scope.log.w(message)
+        DiagLog.line("PROBLEM: $message")
         synchronized(problems) { problems += message }
     }
 
