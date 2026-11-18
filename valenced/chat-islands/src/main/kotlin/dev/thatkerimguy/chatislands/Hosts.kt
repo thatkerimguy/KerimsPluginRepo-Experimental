@@ -26,8 +26,9 @@ object Hosts {
 
     /** A placeholder view was given a new image: a marker (show that island) or a normal image (stop hosting). */
     fun onBound(placeholder: View, marker: Marker?) {
+        if (!Runtime.active) return
         if (!Runtime.main.looper.isCurrentThread) {
-            Runtime.main.post { onBound(placeholder, marker) }
+            Runtime.post("bind") { onBound(placeholder, marker) }
             return
         }
         val host = byPlaceholder[placeholder]
@@ -43,7 +44,7 @@ object Hosts {
         val parent = placeholder.parent as? ViewGroup
         if (parent == null) {
             // Bound before being added to its row: try again once it's attached
-            placeholder.post { if (placeholder.parent != null) onBound(placeholder, marker) }
+            placeholder.post { Runtime.guarded("bind") { if (placeholder.parent != null) onBound(placeholder, marker) } }
             return
         }
         if (parent !is FrameLayout) {

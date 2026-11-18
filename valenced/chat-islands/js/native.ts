@@ -22,6 +22,7 @@ export interface NativeStatus {
 declare module "@valenced/modules/native" {
     interface NativeMethods {
         "thatkerimguy.chatIslands.status": [[], NativeStatus];
+        "thatkerimguy.chatIslands.listen": [[], null];
         "thatkerimguy.chatIslands.measure": [[key: string, width: number], boolean];
         "thatkerimguy.chatIslands.measureDone": [[key: string], null];
         "thatkerimguy.chatIslands.setDebug": [[on: boolean], null];
@@ -57,10 +58,19 @@ export function setNativeDebug(on: boolean) {
     callNativeMethod(`${NATIVE}.setDebug`, [on]).catch(() => { });
 }
 
-/** Native → JS events, delivered in batches (one per frame at most). */
-export function onNativeEvents(handler: (events: NativeEvent[]) => void) {
+/**
+ * Native → JS events, delivered in batches (one per frame at most). Native sends nothing until
+ * `listen` is called, after the handler is registered: a call to an unregistered JS method, or one
+ * that throws, crashes the app (Valenced can't catch it on the native side).
+ */
+export function onNativeEvents(handler: (events: NativeEvent[]) => void, onError: (e: unknown) => void) {
     registerJSMethod(`${NATIVE}.events`, (events: unknown) => {
-        if (Array.isArray(events)) handler(events as NativeEvent[]);
+        try {
+            if (Array.isArray(events)) handler(events as NativeEvent[]);
+        } catch (e) {
+            onError(e);
+        }
         return null;
     });
+    callNativeMethod(`${NATIVE}.listen`, []).catch(onError);
 }

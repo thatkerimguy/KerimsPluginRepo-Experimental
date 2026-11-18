@@ -270,6 +270,8 @@ New:
 - No network or heavy work in `match` (it runs during row generation); fetching happens in `prepare`, off the row path.
 - Native code never keeps references to Discord views after they're detached (leaks); hosts are removed when their row view is recycled.
 - Every hook point lookup is version-keyed and re-run when Discord updates.
+- Native never calls into JS before the JS side said it listens (`listen`), and a JS method native calls never throws. Valenced throws inside its JS bridge for an unregistered method, and that kills the app (first device test, 2026-11-18: enabling Chat Islands while Discord ran closed it, because the JS side doesn't start then but native sent its status).
+- Turning a plugin with a native part on or off takes effect after a restart on both sides (`startedLate` → `requireReload()` and start nothing; `stop` → `requireReload()`). Native work posted to the main thread runs guarded (`Runtime.post` / `guarded`): an exception there would crash the app.
 
 ## 11. Risks and open questions (answered by phase 0 unless noted)
 
@@ -284,6 +286,7 @@ New:
 ## 12. Progress
 
 - 2026-11-18: plan; shared core (detect, model, text, fetcher, cache, media, layout, health, X and Reddit resolvers) with tests on hand-made fixtures; Chat Islands JS (registry, store, pipeline, display, marker, measure, root, Discord patches, bridge) with tests and a Discord module check; Chat Islands native spike (Fresco marker hook, hosts, surface pool, measuring, events); CI builds every Valenced plugin and compiles native parts; the publish workflow packages `plugin.jar`.
+- 2026-11-18, first device test: enabling Chat Islands with Discord running closed the app. Cause: the native part started late and sent an event to a JS method that was never registered (the JS side skips a late start). Fixed: native waits for `listen`, both sides require a restart on enable / disable, native main-thread work is guarded.
 - Next: phase 0 on a device (TESTING.md, "Chat Islands phase 0"), then a minimal Social Embeds plugin (X card) as the first real provider.
 
 ## 13. Decisions log

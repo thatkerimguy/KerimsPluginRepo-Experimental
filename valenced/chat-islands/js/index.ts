@@ -43,7 +43,7 @@ export default plugin({
         }
         hooks.log = (level, ...args) => logger[level]?.(...args);
         registerRoot();
-        onNativeEvents(handleNativeEvents);
+        onNativeEvents(handleNativeEvents, e => hooks.log("error", "Native event handling failed", e));
         checkNative();
         if (isAvailable()) works("native");
         else failed("native", unavailableReason() ?? "unknown");

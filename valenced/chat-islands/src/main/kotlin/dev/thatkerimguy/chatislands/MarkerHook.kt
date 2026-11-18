@@ -51,20 +51,30 @@ class MarkerHook(private val scope: PluginScope) {
 
         unhooks += XposedBridge.hookMethod(build, object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
-                val controller = param.result ?: return
-                val url = markerUrlOf(param.thisObject) ?: return
-                markerControllers[controller] = url
+                if (!Runtime.active) return
+                try {
+                    val controller = param.result ?: return
+                    val url = markerUrlOf(param.thisObject) ?: return
+                    markerControllers[controller] = url
+                } catch (e: Throwable) {
+                    scope.log.w("build hook failed", e)
+                }
             }
         })
 
         unhooks += XposedBridge.hookMethod(setController, object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
-                val view = param.thisObject as? View ?: return
-                val controller = param.args[0]
-                val marker = if (controller == null) null else markerControllers[controller]?.let(Marker::decode)
-                // Most images aren't islands: only views that are or were hosts need work
-                if (marker == null && !Hosts.isHosting(view)) return
-                Hosts.onBound(view, marker)
+                if (!Runtime.active) return
+                try {
+                    val view = param.thisObject as? View ?: return
+                    val controller = param.args[0]
+                    val marker = if (controller == null) null else markerControllers[controller]?.let(Marker::decode)
+                    // Most images aren't islands: only views that are or were hosts need work
+                    if (marker == null && !Hosts.isHosting(view)) return
+                    Hosts.onBound(view, marker)
+                } catch (e: Throwable) {
+                    scope.log.w("setController hook failed", e)
+                }
             }
         })
         scope.log.i("Hooked ${builderClass.name}.build and ${draweeView.name}.setController")
