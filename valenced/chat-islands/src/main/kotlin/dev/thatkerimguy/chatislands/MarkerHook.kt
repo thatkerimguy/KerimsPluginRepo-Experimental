@@ -103,8 +103,9 @@ class MarkerHook(private val scope: PluginScope) {
                         Runtime.diag("setController in ${view.parent?.javaClass?.name}: controller ${controller?.javaClass?.name}, marker ${url ?: "none"}, last build url ${lastBuildUrl}")
                     }
                     if (url != null) Runtime.diag("setController with a marker on ${view.javaClass.name} (parent ${view.parent?.javaClass?.name}): ${marker?.key ?: "couldn't decode $url"}", key = true)
-                    // Most images aren't islands: only views that are or were hosts need work
-                    if (marker == null && !Hosts.isHosting(view)) return
+                    // Only markers attach here; hosts are detached by MediaViewHook (Discord sets other
+                    // controllers on a placeholder's view, which must not tear its host down)
+                    if (marker == null) return
                     Hosts.onBound(view, marker)
                 } catch (e: Throwable) {
                     scope.log.w("setController hook failed", e)
