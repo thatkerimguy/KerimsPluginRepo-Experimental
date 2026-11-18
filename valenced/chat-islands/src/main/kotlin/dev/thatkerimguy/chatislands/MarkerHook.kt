@@ -30,6 +30,8 @@ class MarkerHook(private val scope: PluginScope) {
         private set
 
     private val unhooks = mutableListOf<XC_MethodHook.Unhook>()
+    @Volatile private var sawBuild = false
+    @Volatile private var sawSetController = false
 
     /** Controller → marker URL, for controllers built from a marker request. */
     private val markerControllers: MutableMap<Any, String> = Collections.synchronizedMap(WeakHashMap())
@@ -66,8 +68,13 @@ class MarkerHook(private val scope: PluginScope) {
             override fun afterHookedMethod(param: MethodHookParam) {
                 if (!Runtime.active) return
                 try {
+                    if (!sawBuild) {
+                        sawBuild = true
+                        Runtime.diag("first build() call: ${param.thisObject?.javaClass?.name}, request fields ${requestFieldsOf(param.thisObject.javaClass).map { it.name }}")
+                    }
                     val controller = param.result ?: return
                     val url = markerUrlOf(param.thisObject) ?: return
+                    Runtime.diag("built a marker controller (${controller.javaClass.name}): $url")
                     markerControllers[controller] = url
                 } catch (e: Throwable) {
                     scope.log.w("build hook failed", e)
@@ -81,7 +88,13 @@ class MarkerHook(private val scope: PluginScope) {
                 try {
                     val view = param.thisObject as? View ?: return
                     val controller = param.args[0]
-                    val marker = if (controller == null) null else markerControllers[controller]?.let(Marker::decode)
+                    if (!sawSetController) {
+                        sawSetController = true
+                        Runtime.diag("first setController() call: ${view.javaClass.name}, controller ${controller?.javaClass?.name}")
+                    }
+                    val url = if (controller == null) null else markerControllers[controller]
+                    val marker = url?.let(Marker::decode)
+                    if (url != null) Runtime.diag("setController with a marker on ${view.javaClass.name} (parent ${view.parent?.javaClass?.name}): ${marker?.key ?: "couldn't decode $url"}")
                     // Most images aren't islands: only views that are or were hosts need work
                     if (marker == null && !Hosts.isHosting(view)) return
                     Hosts.onBound(view, marker)
@@ -122,6 +135,7 @@ class MarkerHook(private val scope: PluginScope) {
                 ?: continue
             val url = uri.toString()
             if (Marker.isMarker(url)) return url
+            if (url.contains(".invalid/")) Runtime.diag("image request isn't a marker: $url")
         }
         return null
     }

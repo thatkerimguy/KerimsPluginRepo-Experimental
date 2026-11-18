@@ -120,6 +120,13 @@ object Runtime {
         else problem("React surfaces aren't available (${pool.failure ?: "unknown"})")
     }
 
+    private val diagCount = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Device-test diagnostics: the first [MAX_DIAG] are logged (phase 0; remove when islands work). */
+    fun diag(message: String) {
+        if (diagCount.incrementAndGet() <= MAX_DIAG) scope.log.i("diag: $message")
+    }
+
     fun problem(message: String) {
         scope.log.w(message)
         synchronized(problems) { problems += message }
@@ -224,4 +231,5 @@ object Runtime {
     fun sendStatus() = event("status", "status" to status())
 
     private const val MAX_PENDING = 200
+    private const val MAX_DIAG = 80
 }
