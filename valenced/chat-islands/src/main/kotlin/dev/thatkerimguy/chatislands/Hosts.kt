@@ -42,7 +42,7 @@ object Hosts {
             return
         }
         val parent = placeholder.parent as? ViewGroup
-        Runtime.diag("onBound ${marker.key}: parent ${parent?.javaClass?.name}, pool ${Runtime.pool != null}, surfaces ${Runtime.surfacesWork}")
+        Runtime.diag("onBound ${marker.key}: parent ${parent?.javaClass?.name}, pool ${Runtime.pool != null}, surfaces ${Runtime.surfacesWork}", key = true)
         if (parent == null) {
             // Bound before being added to its row: try again once it's attached
             placeholder.post { Runtime.guarded("bind") { if (placeholder.parent != null) onBound(placeholder, marker) } }
@@ -108,7 +108,7 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
         if (previous != null) Runtime.event("detach", "key" to previous.key)
         val pool = Runtime.pool ?: return
         surface?.let { pool.release(it) }
-        surface = pool.acquire(marker.key, marker.widthDp).also { Runtime.diag("show ${marker.key} at ${marker.widthDp}dp: surface ${if (it == null) "none" else "ok"}") }?.also { pooled ->
+        surface = pool.acquire(marker.key, marker.widthDp).also { Runtime.diag("show ${marker.key} at ${marker.widthDp}dp: surface ${if (it == null) "none" else "ok"}", key = true) }?.also { pooled ->
             (pooled.view.parent as? ViewGroup)?.removeView(pooled.view)
             addView(pooled.view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         }

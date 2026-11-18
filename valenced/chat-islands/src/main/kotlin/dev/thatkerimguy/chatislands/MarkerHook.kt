@@ -78,7 +78,7 @@ class MarkerHook(private val scope: PluginScope) {
                     }
                     val controller = param.result ?: return
                     val url = markerUrlOf(param.thisObject) ?: return
-                    Runtime.diag("built a marker controller (${controller.javaClass.name}): $url")
+                    Runtime.diag("built a marker controller (${controller.javaClass.name}): $url", key = true)
                     markerControllers[controller] = url
                 } catch (e: Throwable) {
                     scope.log.w("build hook failed", e)
@@ -98,10 +98,10 @@ class MarkerHook(private val scope: PluginScope) {
                     }
                     val url = if (controller == null) null else markerControllers[controller]
                     val marker = url?.let(Marker::decode)
-                    if (view.parent?.javaClass?.name?.contains("MediaView") == true) {
+                    if (view.parent?.javaClass?.name?.contains("MediaView") == true && lastBuildUrl?.startsWith("http") == true) {
                         Runtime.diag("setController in ${view.parent?.javaClass?.name}: controller ${controller?.javaClass?.name}, marker ${url ?: "none"}, last build url ${lastBuildUrl}")
                     }
-                    if (url != null) Runtime.diag("setController with a marker on ${view.javaClass.name} (parent ${view.parent?.javaClass?.name}): ${marker?.key ?: "couldn't decode $url"}")
+                    if (url != null) Runtime.diag("setController with a marker on ${view.javaClass.name} (parent ${view.parent?.javaClass?.name}): ${marker?.key ?: "couldn't decode $url"}", key = true)
                     // Most images aren't islands: only views that are or were hosts need work
                     if (marker == null && !Hosts.isHosting(view)) return
                     Hosts.onBound(view, marker)
@@ -138,7 +138,7 @@ class MarkerHook(private val scope: PluginScope) {
         lastBuildUrl = null
         if (requests.all { it == null } && noRequestLogs++ < 5) {
             // Diagnostics: a build with no request in the fields we read (array or supplier instead?)
-            val other = instanceFields(builder.javaClass).mapNotNull { f ->
+            val other = instanceFields(builder.javaClass).toList().mapNotNull { f ->
                 runCatching { f.isAccessible = true; f.get(builder) }.getOrNull()?.let { v ->
                     "${f.name}:${v.javaClass.name}${if (v is Array<*>) "[${v.size}]" else ""}"
                 }
@@ -153,8 +153,8 @@ class MarkerHook(private val scope: PluginScope) {
             val url = uri.toString()
             lastBuildUrl = url
             if (Marker.isMarker(url)) return url
-            if (!url.startsWith("https://cdn.discordapp.com/") && urlLogs++ < 40) Runtime.diag("build() url: $url")
-            if (url.contains(".invalid/")) Runtime.diag("image request isn't a marker: $url")
+            if (url.startsWith("http") && !url.startsWith("https://cdn.discordapp.com/") && urlLogs++ < 40) Runtime.diag("build() url: $url")
+            if (url.contains(".invalid/")) Runtime.diag("image request isn't a marker: $url", key = true)
         }
         return null
     }

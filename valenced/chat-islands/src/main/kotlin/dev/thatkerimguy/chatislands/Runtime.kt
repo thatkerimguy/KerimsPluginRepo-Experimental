@@ -121,10 +121,15 @@ object Runtime {
     }
 
     private val diagCount = java.util.concurrent.atomic.AtomicInteger()
+    private val keyDiagCount = java.util.concurrent.atomic.AtomicInteger()
 
-    /** Device-test diagnostics: the first [MAX_DIAG] are logged (phase 0; remove when islands work). */
-    fun diag(message: String) {
-        if (diagCount.incrementAndGet() <= MAX_DIAG) scope.log.i("diag: $message")
+    /**
+     * Device-test diagnostics (phase 0; remove when islands work). General lines share a budget of
+     * [MAX_DIAG]; [key] lines (markers, hosts) have their own, so noise can't crowd them out.
+     */
+    fun diag(message: String, key: Boolean = false) {
+        val n = (if (key) keyDiagCount else diagCount).incrementAndGet()
+        if (n <= MAX_DIAG) scope.log.i("diag: $message")
     }
 
     fun problem(message: String) {
