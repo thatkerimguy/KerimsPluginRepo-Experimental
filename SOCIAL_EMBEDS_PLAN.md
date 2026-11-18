@@ -259,7 +259,7 @@ Development in the cloud environment can't run Discord, so each phase is built a
 
 ## 10. Rules
 
-Carried over from GIFs+ (each came from a real bug, see CLAUDE.md):
+Carried over from GIFs+ (each came from a real bug, see GIFS_PLUS.md):
 - Never touch the data, only what's displayed (row data is display; message objects, embeds and stores are never changed).
 - No hardcoded colours: Discord theme tokens / CSS variables only.
 - Mobile: nothing from `@valenced/discord/*`, `react` or `react-native` at module level; classic JSX pragma on every `.tsx`; never `<RN export>.<RN name>`; never a React / RN import as a shorthand object key; flux patches return the payload; settings load late (`whenSettingsLoaded`); turning the plugin on or off asks for a reload.

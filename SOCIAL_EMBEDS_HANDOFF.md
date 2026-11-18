@@ -12,7 +12,7 @@ The user wants X, Reddit, TikTok and Instagram links in Discord chat to become w
 
 - Branch `claude/blissful-mayer-ldmxk6`, also fast-forwarded to `main` of GitHub `thatkerimguy/KerimsPluginRepo-Experimental` (latest: `77e3585`).
 - Published on the experimental Valenced repo (`https://thatkerimguy.github.io/KerimsPluginRepo-Experimental/index.json`): **Chat Islands Experimental 0.1.0.14** (ZIP: `manifest.json`, `index.js`, `plugin.jar`). Every push to `main` publishes a new `0.1.0.<run>`.
-- The user's local copy is `C:\Work\Gifs+\experimental` (see CLAUDE.md, "Experimental repository"). Pull before working: it may not have these commits yet.
+- The user's local copy is `C:\Work\Gifs+\experimental` (see GIFS_PLUS.md, "Experimental repository"; the git clone used for Chat Islands testing is `C:\Work\KerimsPluginRepo-Experimental`). Pull before working: it may not have these commits yet.
 
 ## What's done and checked (in the cloud, not on a device)
 

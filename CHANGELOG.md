@@ -1,7 +1,7 @@
 # GIFs+ changelog
 
 What changed, why, and how it was checked, newest first. The current design and
-the rules that came out of these entries are in CLAUDE.md; how to test is in
+the rules that came out of these entries are in GIFS_PLUS.md (short form in CLAUDE.md); how to test is in
 TESTING.md. "Not tried in Discord / on a device" means only builds, type checks
 and tests ran.
 
