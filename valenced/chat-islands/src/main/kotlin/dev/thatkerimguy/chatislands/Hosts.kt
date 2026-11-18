@@ -93,7 +93,16 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
     /** The host fills its parent like the placeholder; placeholder layout changes only update the chat width. */
     @Suppress("UNUSED_PARAMETER")
     private fun matchPlaceholder(l: Int, t: Int, r: Int, b: Int) {
-        if (r - l > 1) reportChatWidth()
+        if (r - l <= 1) return
+        val shownDp = ((r - l) / density).toInt()
+        val asked = marker?.widthDp ?: 0
+        // Discord scales a placeholder wider than the embed space down to fit (keeping its aspect
+        // ratio, so the island is cut off at the bottom too: 0.1.0.26, 880 px asked, 871 px shown).
+        // The width it got is then exactly the space there is: measure islands at that.
+        if (asked > 0 && shownDp < asked) {
+            Runtime.diag("placeholder ${marker?.key} shown at $shownDp dp, asked $asked dp", key = true)
+            Runtime.reportChatWidth(shownDp)
+        } else reportChatWidth()
     }
 
     fun show(marker: Marker) {
@@ -130,6 +139,12 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
         marker?.let { Runtime.event("detach", "key" to it.key) }
         marker = null
         (parent as? ViewGroup)?.removeView(this)
+    }
+
+    /** The host fills the placeholder's parent, so its size is the placeholder's (reliable, unlike the placeholder's own callbacks). */
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        matchPlaceholder(0, 0, w, h)
     }
 
     override fun onAttachedToWindow() {

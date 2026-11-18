@@ -55,18 +55,41 @@ let ThemeProvider: ((props: { children: ReactNode; }) => ReactNode) | null = nul
 
 function IslandRoot(props: RootProps) {
     const content = <IslandContent {...props} />;
-    return ThemeProvider ? <ThemeProvider>{content}</ThemeProvider> : content;
+    // The boundary is outside the theme provider too: a throw there would otherwise unmount the
+    // whole surface silently (an empty surface was seen on the device in 0.1.0.26)
+    const ErrorBoundary = Boundary();
+    return (
+        <ErrorBoundary islandKey={props.islandKey ?? ""}>
+            {ThemeProvider ? <ThemeProvider>{content}</ThemeProvider> : content}
+        </ErrorBoundary>
+    );
 }
+
+/** Which island each surface showed last (for the diagnostics: one line per change). */
+const lastRendered = new Map<string, string>();
 
 function IslandContent({ islandKey = "", width = 0, measuring = false }: RootProps) {
     const island = useIsland(islandKey);
+    const what = `${islandKey}|${width}|${measuring}|${island ? island.phase : "none"}`;
+    const surfaceId = `${measuring ? "measure" : "show"}:${islandKey}`;
+    if (lastRendered.get(surfaceId) !== what) {
+        lastRendered.set(surfaceId, what);
+        if (lastRendered.size > 200) lastRendered.clear();
+        hooks.log("warn", `diag: island root ${islandKey} (${measuring ? "measuring" : "showing"}, ${width} dp): ${island ? `phase ${island.phase}` : "not in the store"}`);
+    }
     if (!island || !width) return null;
     works("surfaces");
     const Island = island.provider.component;
     const ErrorBoundary = Boundary();
     return (
         <View
-            style={{ width }}
+            // Keyed by island: a reused surface gets a new view, so onLayout fires for every island.
+            // Without it, a surface pointed at another island of the same size never reported a
+            // height and measuring timed out (0.1.0.26 on the device).
+            key={islandKey}
+            // Measuring renders at the requested width; a shown island fills its host, which Discord
+            // may have made narrower than that (it scales the placeholder down to fit the chat).
+            style={measuring ? { width } : { width: "100%" }}
             collapsable={false}
             onLayout={measuring ? e => reportHeight(islandKey, width, e.nativeEvent.layout.height) : undefined}
         >
