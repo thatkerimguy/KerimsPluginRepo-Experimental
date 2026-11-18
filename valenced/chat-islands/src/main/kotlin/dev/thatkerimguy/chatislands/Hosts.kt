@@ -99,10 +99,18 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
         // Discord scales a placeholder wider than the embed space down to fit (keeping its aspect
         // ratio, so the island is cut off at the bottom too: 0.1.0.26, 880 px asked, 871 px shown).
         // The width it got is then exactly the space there is: measure islands at that.
+        // The accessories estimate is 12 dp too wide (0.1.0.27: 328 estimated, 316 shown), and
+        // reporting both made the JS width flip between them. So remember how far off the
+        // estimate was and take that off it from then on (an offset, not a fixed width, so it
+        // still follows rotation and split screen); the estimate never beats a smaller shown width.
+        val estimate = estimateChatWidthDp()
         if (asked > 0 && shownDp < asked) {
-            Runtime.diag("placeholder ${marker?.key} shown at $shownDp dp, asked $asked dp", key = true)
+            Runtime.diag("placeholder ${marker?.key} shown at $shownDp dp, asked $asked dp, estimate $estimate dp", key = true)
+            if (estimate > shownDp) Runtime.estimateExcessDp = estimate - shownDp
             Runtime.reportChatWidth(shownDp)
-        } else reportChatWidth()
+        } else if (estimate > 0) {
+            Runtime.reportChatWidth(estimate - Runtime.estimateExcessDp)
+        }
     }
 
     fun show(marker: Marker) {
@@ -170,7 +178,7 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
      * padding is that edge (0.1.0.25 view tree: embed 176..1047 px in a 1080 px wide accessories view).
      * The chat list itself is R8-renamed (f9.g0), so it's recognised by its superclass, as a fallback.
      */
-    private fun reportChatWidth() {
+    private fun estimateChatWidthDp(): Int {
         var view: View = this
         var x = left
         var container: ViewGroup? = null
@@ -183,9 +191,9 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
             x += p.left
             view = p
         }
-        if (container == null || container.width <= 0) return
+        if (container == null || container.width <= 0) return 0
         val available = container.width - container.paddingRight - x
-        if (available > 0) Runtime.reportChatWidth((available / density).toInt())
+        return if (available > 0) (available / density).toInt() else 0
     }
 
     private fun isRecyclerView(v: View) =
