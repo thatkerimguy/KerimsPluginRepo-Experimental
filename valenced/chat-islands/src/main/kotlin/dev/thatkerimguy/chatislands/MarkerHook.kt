@@ -1,11 +1,14 @@
 package dev.thatkerimguy.chatislands
 
+import android.net.Uri
 import android.view.View
 import app.valenced.plugins.PluginScope
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
+import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -17,8 +20,10 @@ import java.util.WeakHashMap
  * hook remembers which controllers carry a marker; the setController hook then tells [Hosts]
  * which view shows which island, and when a reused view goes back to a normal image.
  *
- * Phase 0 checks that Discord's chat uses these classes under these names (Fresco's public
- * API; RN keeps it). If not, [failure] says what's missing and islands stay off.
+ * Checked against Discord 352.6 (decompiled): chat's MediaView (a FrameLayout) loads its
+ * SimpleDraweeView with `getControllerBuilder()`, sets the request, `build()`, `setController`.
+ * R8 renamed the rest of Fresco, so classes and fields are found from SimpleDraweeView by shape.
+ * If something is missing, [failure] says what and islands stay off.
  */
 class MarkerHook(private val scope: PluginScope) {
     var failure: String? = null
@@ -34,20 +39,28 @@ class MarkerHook(private val scope: PluginScope) {
 
     fun install(): Boolean {
         val cl = scope.classLoader
-        val builderClass = XposedHelpers.findClassIfExists(BUILDER, cl)
-            ?: runCatching {
-                scope.dexFinder.findClass { matcher { usingStrings(BUILDER_STRING) } }
-            }.getOrNull()
+        // Discord's R8 renames most of Fresco (352.6: DraweeView is pj.a, the builder ij.f with
+        // AbstractDraweeControllerBuilder merged in). SimpleDraweeView keeps its name (layouts
+        // name it), so everything else is found from it by shape.
+        val simple = XposedHelpers.findClassIfExists(SIMPLE_DRAWEE_VIEW, cl)
         val draweeView = XposedHelpers.findClassIfExists(DRAWEE_VIEW, cl)
-        if (builderClass == null) return fail("Fresco's controller builder not found")
-        if (draweeView == null) return fail("Fresco's DraweeView not found")
-
-        val build = generateSequence(builderClass) { it.superclass }
-            .flatMap { it.declaredMethods.asSequence() }
-            .firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() }
-            ?: return fail("${builderClass.name}.build() not found")
+            ?: simple?.let { s ->
+                generateSequence<Class<*>>(s) { it.superclass }.firstOrNull { c ->
+                    c.declaredMethods.any { it.name == "setController" && it.parameterTypes.size == 1 }
+                }
+            }
+            ?: return fail("Fresco's DraweeView not found")
         val setController = draweeView.methods.firstOrNull { it.name == "setController" && it.parameterTypes.size == 1 }
             ?: return fail("DraweeView.setController not found")
+        val controllerType = setController.parameterTypes[0]
+
+        val builderClass = XposedHelpers.findClassIfExists(BUILDER, cl)
+            ?: simple?.let { s -> runCatching { s.getMethod("getControllerBuilder").returnType }.getOrNull() }
+            ?: return fail("Fresco's controller builder not found")
+        val chain = generateSequence(builderClass) { it.superclass }.flatMap { it.declaredMethods.asSequence() }
+        val build = chain.firstOrNull { it.name == "build" && it.parameterTypes.isEmpty() }
+            ?: chain.firstOrNull { it.parameterTypes.isEmpty() && controllerType.isAssignableFrom(it.returnType) }
+            ?: return fail("${builderClass.name}.build() not found")
 
         unhooks += XposedBridge.hookMethod(build, object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
@@ -93,12 +106,24 @@ class MarkerHook(private val scope: PluginScope) {
         return false
     }
 
-    /** The builder's image request's source URI, when it is a marker (cheap for everything else). */
+    /**
+     * The builder's image request's source URI, when it is a marker (cheap for everything else).
+     * Fresco's getters when they exist; otherwise (R8 inlined them) the builder's fields that hold
+     * an image request (a class with a [Uri] field: the request and the low-res request) and that
+     * request's [Uri] field.
+     */
     private fun markerUrlOf(builder: Any): String? {
-        val request = getter(requestGetter, builder.javaClass, "getImageRequest")?.invoke(builder) ?: return null
-        val uri = getter(uriGetter, request.javaClass, "getSourceUri")?.invoke(request) ?: return null
-        val url = uri.toString()
-        return if (Marker.isMarker(url)) url else null
+        val getter = getter(requestGetter, builder.javaClass, "getImageRequest")
+        val requests = if (getter != null) listOf(getter.invoke(builder)) else requestFieldsOf(builder.javaClass).map { it.get(builder) }
+        for (request in requests) {
+            if (request == null) continue
+            val uri = getter(uriGetter, request.javaClass, "getSourceUri")?.invoke(request)
+                ?: uriFieldOf(request.javaClass)?.get(request)
+                ?: continue
+            val url = uri.toString()
+            if (Marker.isMarker(url)) return url
+        }
+        return null
     }
 
     private fun getter(cache: MutableMap<Class<*>, Method?>, cls: Class<*>, name: String): Method? =
@@ -106,10 +131,29 @@ class MarkerHook(private val scope: PluginScope) {
             runCatching { cls.getMethod(name).apply { isAccessible = true } }.getOrNull()
         }
 
+    private val requestFields = Collections.synchronizedMap(HashMap<Class<*>, List<Field>>())
+    private val uriFields = Collections.synchronizedMap(HashMap<Class<*>, Field?>())
+
+    private fun instanceFields(cls: Class<*>) = generateSequence(cls) { it.superclass }
+        .takeWhile { it != Any::class.java }
+        .flatMap { it.declaredFields.asSequence() }
+        .filter { !Modifier.isStatic(it.modifiers) }
+
+    private fun uriFieldOf(cls: Class<*>): Field? = uriFields.getOrPut(cls) {
+        instanceFields(cls).firstOrNull { it.type == Uri::class.java }?.apply { isAccessible = true }
+    }
+
+    private fun requestFieldsOf(cls: Class<*>): List<Field> = requestFields.getOrPut(cls) {
+        instanceFields(cls)
+            .filter { f -> !f.type.isPrimitive && !f.type.isArray && !f.type.name.startsWith("java.") && !f.type.name.startsWith("android.") }
+            .filter { f -> uriFieldOf(f.type) != null }
+            .onEach { it.isAccessible = true }
+            .toList()
+    }
+
     companion object {
         const val BUILDER = "com.facebook.drawee.controller.AbstractDraweeControllerBuilder"
         const val DRAWEE_VIEW = "com.facebook.drawee.view.DraweeView"
-        /** A string only that builder uses, for finding it if R8 renamed it. */
-        const val BUILDER_STRING = "Cannot specify both ImageRequest and FirstAvailableImageRequests!"
+        const val SIMPLE_DRAWEE_VIEW = "com.facebook.drawee.view.SimpleDraweeView"
     }
 }

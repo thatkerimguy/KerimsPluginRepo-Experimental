@@ -74,8 +74,10 @@ object Runtime {
             scope.withAppActivity { a ->
                 guarded("activity") {
                     activity = a
-                    pool = SurfacePool(a).also { surfacesWork = it.available }
-                    if (!surfacesWork) problem("React surfaces aren't available (${pool?.failure ?: "unknown"})")
+                    // Discord's React root view doesn't exist yet: the surface API is looked
+                    // up when JS listens (resolveSurfaces)
+                    pool = SurfacePool(a)
+                    if (jsListening) resolveSurfaces()
                     sendStatus()
                 }
             }
@@ -109,6 +111,15 @@ object Runtime {
         }
     }
 
+    /** Looks up the React surface API (main thread; JS runs, so Discord's root view exists). */
+    fun resolveSurfaces() {
+        val pool = pool ?: return
+        if (surfacesWork) return
+        surfacesWork = pool.resolve()
+        if (surfacesWork) scope.log.i("React surfaces available")
+        else problem("React surfaces aren't available (${pool.failure ?: "unknown"})")
+    }
+
     fun problem(message: String) {
         scope.log.w(message)
         synchronized(problems) { problems += message }
@@ -116,7 +127,9 @@ object Runtime {
 
     fun status(): Map<String, Any?> {
         val reason = synchronized(problems) { problems.firstOrNull() }
-            ?: if (activity == null) "Discord hasn't opened yet" else null
+            ?: if (activity == null) "Discord hasn't opened yet"
+            else if (!surfacesWork) "Waiting for Discord's React view"
+            else null
         return mapOf(
             "ready" to (reason == null && hooked && surfacesWork),
             "reason" to reason,
@@ -130,7 +143,11 @@ object Runtime {
 
         scope.registerNativeMethod("$NS.listen") {
             jsListening = true
-            post("flush") { flush() }
+            post("listen") {
+                resolveSurfaces()
+                sendStatus()
+                flush()
+            }
             null
         }
 

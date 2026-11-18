@@ -5,21 +5,22 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import java.lang.reflect.Method
 
 /**
- * React surfaces running the JS module "ChatIsland" (js/root.tsx), from Discord's ReactHost
- * (new architecture, bridgeless: `ReactApplication.getReactHost().createSurface(...)`).
+ * React surfaces running the JS module "ChatIsland" (js/root.tsx), started in Discord's
+ * bridgeless React Native through [ReactSurfaces] (found by shape: R8 removed the public API).
  *
  * Surfaces are expensive to start, so a few are kept and reused: a surface leaving an island
- * keeps running and gets the next island's props. Reached through reflection, so the plugin
- * doesn't compile against one React Native version; [failure] says what's missing.
+ * keeps running and gets the next island's props (`SurfaceHandlerBinding.setProps`).
+ * [resolve] finds the API once Discord's React root view exists (not yet when the activity is
+ * created); [failure] says what's missing. Main thread only.
  *
  * Measuring: a surface rendered in an invisible container off screen at the requested width,
  * with free height; the island's root reports its height to JS (js/measure.ts).
  */
 class SurfacePool(private val activity: Activity) {
-    class Pooled(val surface: Any, val view: ViewGroup) {
+    class Pooled(val surface: ReactSurfaces.Surface) {
+        val view: ViewGroup get() = surface.view
         var key: String? = null
         var widthDp = 0
         var measuring = false
@@ -27,34 +28,27 @@ class SurfacePool(private val activity: Activity) {
         var lastUsed = 0L
     }
 
-    var failure: String? = null
+    var failure: String? = "Not looked up yet"
         private set
-    val available: Boolean
+    private var api: ReactSurfaces? = null
+    val available: Boolean get() = api != null
 
     private val density = activity.resources.displayMetrics.density
     private val surfaces = mutableListOf<Pooled>()
     private val measuring = HashMap<String, Pooled>()
     private var measureBox: FrameLayout? = null
 
-    private val reactHost: Any? = runCatching {
-        activity.application.javaClass.getMethod("getReactHost").invoke(activity.application)
-    }.getOrNull()
-
-    private val createSurface: Method? = reactHost?.javaClass?.methods?.firstOrNull {
-        it.name == "createSurface" && it.parameterTypes.size == 3 && it.parameterTypes[2] == Bundle::class.java
-    }
-
-    init {
-        available = when {
-            reactHost == null -> fail("Discord's ReactHost not found (not the new architecture?)")
-            createSurface == null -> fail("ReactHost.createSurface not found")
-            else -> true
+    /** Finds the surface API (again, until it's found). True when surfaces can be made. */
+    fun resolve(): Boolean {
+        if (api != null) return true
+        api = try {
+            ReactSurfaces.find(activity)
+        } catch (e: Throwable) {
+            failure = "Looking up React surfaces failed: $e"
+            return false
         }
-    }
-
-    private fun fail(reason: String): Boolean {
-        failure = reason
-        return false
+        failure = if (api != null) null else ReactSurfaces.lastFailure ?: "unknown"
+        return api != null
     }
 
     private fun props(key: String, widthDp: Int, measuring: Boolean) = Bundle().apply {
@@ -63,21 +57,21 @@ class SurfacePool(private val activity: Activity) {
         putBoolean("measuring", measuring)
     }
 
-    private fun create(key: String, widthDp: Int, measuring: Boolean): Pooled? = runCatching {
-        val surface = createSurface!!.invoke(reactHost, activity, SURFACE_MODULE, props(key, widthDp, measuring))!!
-        surface.javaClass.getMethod("start").invoke(surface)
-        val view = surface.javaClass.getMethod("getView").invoke(surface) as ViewGroup
-        Pooled(surface, view).also { surfaces += it }
-    }.onFailure {
-        Runtime.problem("Couldn't start a React surface: $it")
-        Runtime.surfacesWork = false
-        Runtime.sendStatus()
-    }.getOrNull()
+    private fun create(key: String, widthDp: Int, measuring: Boolean): Pooled? {
+        val api = api ?: return null
+        return runCatching {
+            Pooled(api.create(activity, SURFACE_MODULE, props(key, widthDp, measuring))).also { surfaces += it }
+        }.onFailure {
+            Runtime.problem("Couldn't start a React surface: $it")
+            Runtime.surfacesWork = false
+            Runtime.sendStatus()
+        }.getOrNull()
+    }
 
-    /** Points a running surface at another island. Falls back to a new surface when the API to update props is missing. */
+    /** Points a running surface at another island; a new surface if that fails. */
     private fun retarget(p: Pooled, key: String, widthDp: Int, measuring: Boolean): Pooled? {
-        val update = p.surface.javaClass.methods.firstOrNull { it.name == "updateInitProps" && it.parameterTypes.size == 1 }
-        if (update != null && runCatching { update.invoke(p.surface, props(key, widthDp, measuring)) }.isSuccess) return p
+        val api = api ?: return null
+        if (runCatching { api.setProps(p.surface, props(key, widthDp, measuring)) }.isSuccess) return p
         destroy(p)
         return create(key, widthDp, measuring)
     }
@@ -126,7 +120,7 @@ class SurfacePool(private val activity: Activity) {
 
     private fun destroy(p: Pooled) {
         release(p)
-        runCatching { p.surface.javaClass.getMethod("stop").invoke(p.surface) }
+        runCatching { api?.stop(p.surface) }
         surfaces.remove(p)
     }
 

@@ -24,7 +24,10 @@ The user wants X, Reddit, TikTok and Instagram links in Discord chat to become w
 ## What happened on the device so far
 
 1. Build 0.1.0.13: **enabling Chat Islands while Discord ran closed the app.** Cause (from reading Valenced's source, `bundle/lib/modules/src/native/index.ts`): a native → JS call to a JS method that isn't registered throws inside Valenced's JS bridge, and that crashes the app. The JS side skips a late start; the native side didn't, and sent its status event at once.
-2. Build 0.1.0.14 fixes that (commit `77e3585`): native sends nothing until JS calls `thatkerimguy.chatIslands.listen`; both sides only `requireReload()` when turned on / off while Discord runs; native main-thread work and hook callbacks are guarded. **Not yet tried on the device.**
+2. Build 0.1.0.14 fixes that (commit `77e3585`): native sends nothing until JS calls `thatkerimguy.chatIslands.listen`; both sides only `requireReload()` when turned on / off while Discord runs; native main-thread work and hook callbacks are guarded. **Tried on the device (local session): no more closing.**
+3. With 0.1.0.14 both native parts failed on Discord 352.6: `Fresco's controller builder not found` and `React surfaces aren't available (Discord's ReactHost not found …)`. Discord's R8 renamed or inlined everything looked up by name. The APK from the phone was decompiled with jadx into `C:\Work\discord-352.6-jadx` (`src\sources` Java, `res-out` resources, `discord-352.6.apk`; outside the repo). Lookups rewritten by shape: `MarkerHook.kt` (from `SimpleDraweeView`), new `ReactSurfaces.kt` (from Discord's running root view; `FabricUIManager.startSurface`), surfaces looked up at `listen`. Details in plan section 4. **Not yet built or tried.**
+
+Useful paths in the decompiled code (352.6 names): chat image views `com/discord/chat/presentation/message/view/MediaView.java`, Discord's image loading helper `v50/l.java` `o0(...)`, `ReactSurfaceImpl` = `um/a0.java`, `ReactSurfaceView` = `um/b0.java` (Discord's subclass `dg/b.java`), `ReactDelegate.loadApp` = `sf/b.java` `a(...)`, start lambda `um/r.java`. Phone APK: `adb shell pm path app.valenced` (an LSPatch build: Discord's original is `assets/lspatch/origin.apk` inside it).
 
 ## What to do now
 
