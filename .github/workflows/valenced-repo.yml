@@ -120,7 +120,7 @@ jobs:
                  | .dependencies |= with_entries(if (.key | startswith("thatkerimguy.")) then .key += "-experimental" else . end)' \
                 "$manifest" > "$built_manifest"
               # The plugin's storage paths use PLUGIN_ID: point them at the experimental id
-              grep -rl --include='*.ts' --include='*.tsx' "\"$stable_id\"" "template/plugins/$name/js" \
+              { grep -rl --include='*.ts' --include='*.tsx' "\"$stable_id\"" "template/plugins/$name/js" || true; } \
                 | xargs -r sed -i "s/\"$stable_id\"/\"$id\"/g"
               if grep -rq --include='*.ts' --include='*.tsx' "\"$stable_id\"" "template/plugins/$name/js"; then
                 echo "::error::$stable_id is still in the source after renaming it"
