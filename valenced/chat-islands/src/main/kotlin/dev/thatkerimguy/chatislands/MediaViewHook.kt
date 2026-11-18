@@ -46,6 +46,7 @@ class MediaViewHook(private val scope: PluginScope) {
                     val marker = url?.let(Marker::decode)
                     if (url != null) Runtime.diag("MediaView bound to marker ${marker?.key ?: "(couldn't decode $url)"}", key = true)
                     if (marker == null && !Hosts.isHosting(preview)) return
+                    if (marker == null) Runtime.diag("MediaView with a host bound to other media: ${param.args[1]}", key = true)
                     Hosts.onBound(preview, marker)
                 } catch (e: Throwable) {
                     scope.log.w("MediaView hook failed", e)

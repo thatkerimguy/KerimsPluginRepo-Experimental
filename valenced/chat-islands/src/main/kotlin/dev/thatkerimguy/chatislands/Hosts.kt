@@ -58,6 +58,7 @@ object Hosts {
         byPlaceholder[placeholder] = created
         created.attachTo(parent)
         created.show(marker)
+        Runtime.diag("host for ${marker.key} added at index ${parent.indexOfChild(created)} of ${parent.childCount}; placeholder ${placeholder.width}x${placeholder.height}", key = true)
     }
 
     fun detachAll() {
@@ -118,6 +119,7 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
     }
 
     fun remove() {
+        Runtime.diag("host ${marker?.key} removed by us: ${Throwable().stackTrace.take(8).joinToString(" < ")}", key = true)
         placeholder.removeOnLayoutChangeListener(follow)
         placeholder.alpha = 1f
         surface?.let { Runtime.pool?.release(it) }
@@ -129,10 +131,12 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        Runtime.diag("host ${marker?.key} attached to window: parent ${parent?.javaClass?.simpleName} children ${(parent as? ViewGroup)?.childCount}, ${width}x$height", key = true)
         marker?.let { Runtime.event("attach", "key" to it.key) }
     }
 
     override fun onDetachedFromWindow() {
+        Runtime.diag("host ${marker?.key} detached from window (parent now ${parent?.javaClass?.simpleName}): ${Throwable().stackTrace.take(10).joinToString(" < ")}", key = true)
         marker?.let { Runtime.event("detach", "key" to it.key) }
         super.onDetachedFromWindow()
     }
