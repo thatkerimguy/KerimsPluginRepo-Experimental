@@ -22,13 +22,19 @@ export function encodeMarker({ key, width, height }: Marker): string {
     return `${MARKER_PREFIX}${encodeURIComponent(key)}?w=${Math.round(width)}&h=${Math.round(height)}`;
 }
 
-/** Reads a marker back. Tolerates parameters Discord's image helpers append (…&format=webp). */
+/**
+ * Reads a marker back. Tolerates parameters Discord's image helpers add and the order they
+ * write them in (getSrcWithWidthAndHeight re-serialises the query: …&format=png&width=…).
+ */
 export function decodeMarker(url: string | null | undefined): Marker | null {
     if (!url || !url.startsWith(MARKER_PREFIX)) return null;
-    const m = /^([^?#/]+)\?(?:.*&)?w=(\d+)&h=(\d+)/.exec(url.slice(MARKER_PREFIX.length));
+    const m = /^([^?#/]+)\?([^#]*)/.exec(url.slice(MARKER_PREFIX.length));
     if (!m) return null;
+    const w = /(?:^|&)w=(\d+)(?:&|$)/.exec(m[2]);
+    const h = /(?:^|&)h=(\d+)(?:&|$)/.exec(m[2]);
+    if (!w || !h) return null;
     try {
-        return { key: decodeURIComponent(m[1]), width: Number(m[2]), height: Number(m[3]) };
+        return { key: decodeURIComponent(m[1]), width: Number(w[1]), height: Number(h[1]) };
     } catch {
         return null;
     }
@@ -37,6 +43,12 @@ export function decodeMarker(url: string | null | undefined): Marker | null {
 /**
  * The embed record that holds an island's place: an image embed (drawn as a bare image,
  * no card frame) sized like the island.
+ *
+ * The marker goes in `image`, not `thumbnail`: Discord's native embed view (352.6, ds.e.z /
+ * toMediaSource) shows inline media for an Image embed from `image` only, and draws a
+ * `thumbnail` in a separate small view (an empty card when only the thumbnail is set: seen on
+ * the device). transformEmbeds passes `image` on while "Show embeds and link previews" media
+ * inlining is on.
  */
 export function placeholderEmbed(marker: Marker): IslandEmbed {
     const url = encodeMarker(marker);
@@ -45,8 +57,8 @@ export function placeholderEmbed(marker: Marker): IslandEmbed {
         id: `chat-island:${marker.key}`,
         type: "image",
         url,
-        thumbnail: media,
-        image: undefined,
+        thumbnail: undefined,
+        image: media,
         rawTitle: undefined,
         rawDescription: undefined,
         fields: [],

@@ -46,12 +46,18 @@ test("marker: round trip, appended parameters, rejects", () => {
     assert.ok(url.startsWith(MARKER_PREFIX));
     assert.deepEqual(decodeMarker(url), { key: "social-embeds:123:https://x.com/a/status/1", width: 320, height: 411 });
     assert.deepEqual(decodeMarker(`${url}&format=webp&width=640`), { key: "social-embeds:123:https://x.com/a/status/1", width: 320, height: 411 });
+    // Discord's getSrcWithWidthAndHeight re-serialises the query
+    const [base, query] = url.split("?");
+    assert.deepEqual(decodeMarker(`${base}?format=png&${query.split("&").reverse().join("&")}&width=320&height=411`), { key: "social-embeds:123:https://x.com/a/status/1", width: 320, height: 411 });
+    assert.equal(decodeMarker(`${base}?width=320&height=411`), null);
     assert.equal(decodeMarker("https://cdn.discordapp.com/a.png"), null);
     assert.equal(decodeMarker(`${MARKER_PREFIX}abc`), null);
     assert.equal(decodeMarker(null), null);
     const embed = placeholderEmbed({ key: "k", width: 300, height: 200 });
     assert.equal(embed.type, "image");
-    assert.deepEqual(embed.thumbnail, { url: embed.url, proxyURL: embed.url, width: 300, height: 200 });
+    // Discord's native embed view shows an Image embed's inline media from `image` only
+    assert.deepEqual(embed.image, { url: embed.url, proxyURL: embed.url, width: 300, height: 200 });
+    assert.equal(embed.thumbnail, undefined);
 });
 
 test("registry: match, memo, one island per embed, owners, bad providers", () => {
