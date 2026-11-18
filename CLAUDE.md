@@ -6,6 +6,7 @@ Kept short on purpose: this file is re-read on every step. Details live in the f
 
 - **GIFs+** (`vencord/gifPickerOptimizer/`, `valenced/gif-picker-optimizer/`): GIF picker plugin, Vencord + Valenced builds. Full notes: `GIFS_PLUS.md`. History: `CHANGELOG.md`. Testing: `TESTING.md`.
 - **Chat Islands** (`valenced/chat-islands/`, JS + Kotlin) and **Social Embeds** (`valenced/social-embeds/`): plan, design, rules and progress in `SOCIAL_EMBEDS_PLAN.md` (section 12 = where things stand); device-testing handoff in `SOCIAL_EMBEDS_HANDOFF.md`.
+- **Media Fixes** (`valenced/media-fixes/`, JS + Kotlin, unrelated to the others): fixes Discord's black-video-with-sound (decoder fallback, skips failing hardware decoders, retries) and videos playing by themselves in the background. Causes, hooks and device checklist: `valenced/media-fixes/README.md`. Log: `/sdcard/Android/data/<pkg>/files/media-fixes/`.
 
 ## Repo and releases
 

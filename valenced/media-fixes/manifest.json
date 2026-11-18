@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "thatkerimguy.media-fixes",
+	"name": "Media Fixes",
+	"description": "Fixes videos that play as a black screen with only sound, and videos that start playing by themselves in the background. Android only.",
+	"author": "thatkerimguy (https://github.com/thatkerimguy \"GitHub\")",
+	"icon": "VideoIcon",
+	"version": "0.1.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "dev.thatkerimguy.mediafixes.MediaFixes"
+		}
+	}
+}
