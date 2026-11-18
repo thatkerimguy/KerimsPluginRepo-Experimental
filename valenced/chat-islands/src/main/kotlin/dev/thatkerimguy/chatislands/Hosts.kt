@@ -5,7 +5,9 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import java.util.WeakHashMap
@@ -74,6 +76,12 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
         private set
     private var surface: SurfacePool.Pooled? = null
     private val density = context.resources.displayMetrics.density
+
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var downX = 0f
+    private var downY = 0f
+    /** The gesture started on something in the island that scrolls sideways (a carousel, a tile row). */
+    private var overSideScroller = false
 
     private val follow = View.OnLayoutChangeListener { _, l, t, r, b, _, _, _, _ -> matchPlaceholder(l, t, r, b) }
 
@@ -153,6 +161,55 @@ class IslandHost(context: Context, private val placeholder: View) : FrameLayout(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         matchPlaceholder(0, 0, w, h)
+    }
+
+    /**
+     * Discord's swipe-to-reply (f9.u, an ItemTouchHelper copy on the chat list, 352.6) claims a
+     * leftward drag as soon as it passes the touch slop, before the island's own horizontal
+     * ScrollView sees enough movement to claim it (0.1.0.29: the tile row couldn't be swiped).
+     * When a gesture starts on something that scrolls sideways and turns sideways, claim it
+     * first, at a third of the slop: requestDisallowInterceptTouchEvent cancels the swipe
+     * (its listener's onRequestDisallowInterceptTouchEvent). Vertical drags stay the chat's.
+     * Android clears the claim itself at the end of the gesture.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        try {
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = ev.x
+                    downY = ev.y
+                    overSideScroller = findSideScroller(this, ev.x, ev.y)
+                }
+                MotionEvent.ACTION_MOVE -> if (overSideScroller) {
+                    val dx = Math.abs(ev.x - downX)
+                    val dy = Math.abs(ev.y - downY)
+                    val threshold = touchSlop / 3f
+                    if (dx > threshold && dx > dy) {
+                        parent?.requestDisallowInterceptTouchEvent(true)
+                        overSideScroller = false
+                    } else if (dy > threshold) {
+                        overSideScroller = false
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            overSideScroller = false
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Whether a view under ([x], [y]) in [group]'s coordinates can scroll sideways. */
+    private fun findSideScroller(group: ViewGroup, x: Float, y: Float): Boolean {
+        for (i in group.childCount - 1 downTo 0) {
+            val child = group.getChildAt(i)
+            if (child.visibility != View.VISIBLE) continue
+            val cx = x + group.scrollX - child.left
+            val cy = y + group.scrollY - child.top
+            if (cx < 0 || cy < 0 || cx >= child.width || cy >= child.height) continue
+            if (child.canScrollHorizontally(1) || child.canScrollHorizontally(-1)) return true
+            if (child is ViewGroup && findSideScroller(child, cx, cy)) return true
+        }
+        return false
     }
 
     override fun onAttachedToWindow() {
