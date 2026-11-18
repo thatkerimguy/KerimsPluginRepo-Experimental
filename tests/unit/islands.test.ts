@@ -56,7 +56,8 @@ test("marker: round trip, appended parameters, rejects", () => {
     const embed = placeholderEmbed({ key: "k", width: 300, height: 200 });
     assert.equal(embed.type, "image");
     // Discord's native embed view shows an Image embed's inline media from `image` only
-    assert.deepEqual(embed.image, { url: embed.url, proxyURL: embed.url, width: 300, height: 200 });
+    // url, width, height and srcIsAnimated are required by native EmbedMedia
+    assert.deepEqual(embed.image, { url: embed.url, proxyURL: embed.url, width: 300, height: 200, srcIsAnimated: false });
     assert.equal(embed.thumbnail, undefined);
 });
 

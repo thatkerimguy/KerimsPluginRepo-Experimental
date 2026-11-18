@@ -52,7 +52,10 @@ export function decodeMarker(url: string | null | undefined): Marker | null {
  */
 export function placeholderEmbed(marker: Marker): IslandEmbed {
     const url = encodeMarker(marker);
-    const media = { url, proxyURL: url, width: Math.round(marker.width), height: Math.round(marker.height) };
+    // Native parses this as com.discord.chat.bridge.embed.EmbedMedia: url, width, height and
+    // srcIsAnimated are required (352.6, n7/s.java); a missing one breaks the whole row
+    // ("Something went wrong here"). Discord's own records carry srcIsAnimated.
+    const media = { url, proxyURL: url, width: Math.round(marker.width), height: Math.round(marker.height), srcIsAnimated: false };
     return {
         id: `chat-island:${marker.key}`,
         type: "image",
